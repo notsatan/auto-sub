@@ -1,0 +1,60 @@
+name: Linter
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  setup:
+    strategy:
+      matrix:
+        go-version: [ 1.15.x ]
+        os: [ ubuntu-latest ]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up cache
+        uses: actions/cache@v2.1.3
+        id: cache
+        with:
+          path: auto-subs
+          key: auto-subs-${{ hashFiles('go.mod') }}-${{ matrix.go-version }}
+
+      - name: Imports
+        uses: grandcolline/golang-github-actions@v1.1.0
+        with:
+          run: imports
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Errcheck
+        uses: grandcolline/golang-github-actions@v1.1.0
+        with:
+          run: errcheck
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint
+        uses: grandcolline/golang-github-actions@v1.1.0
+        with:
+          run: lint
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Shadow
+        uses: grandcolline/golang-github-actions@v1.1.0
+        with:
+          run: shadow
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: StaticCheck
+        uses: grandcolline/golang-github-actions@v1.1.0
+        with:
+          run: staticcheck
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sec
+        uses: grandcolline/golang-github-actions@v1.1.0
+        with:
+          run: sec
+          token: ${{ secrets.GITHUB_TOKEN }}

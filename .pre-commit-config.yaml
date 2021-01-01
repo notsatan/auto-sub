@@ -1,0 +1,16 @@
+default_stages: [ commit, push ]
+fail_fast: true
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.5.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+
+  - repo: local
+    hooks:
+      - id: code-style
+        name: Format CodeStyle
+        entry: make codestyle
+        language: system
