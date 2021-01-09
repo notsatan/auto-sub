@@ -3,7 +3,7 @@
 # Name of the temporary directory in which compiled binaries will be stored.
 temp_directory="tmp"
 
-binaries=(errcheck gofumpt goimports golint gosec shadow staticcheck)
+binaries=(errcheck gofumpt goimports golint gosec shadow staticcheck golangci-lint)
 
 echo -e "\nInstalling Shadow"
 go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
@@ -22,6 +22,9 @@ go install github.com/kisielk/errcheck
 
 echo -e "\nInstalling GoSec"
 go install github.com/securego/gosec/cmd/gosec
+
+echo -e "\nInstalling Golang CI - Lint"
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.34.1
 
 # Fetching the location of the compiled binaries.
 gopath=$(go env GOPATH)

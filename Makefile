@@ -30,8 +30,8 @@ help: Makefile
 
 .PHONY: run
 run:
-	## `run`: Run the main project file
-	go run main.go
+	## `run`: Run the main project file. Pass arguments as `make run q="--log"`
+	go run main.go $(q)
 
 # Will install missing dependencies
 .PHONY: install
@@ -73,13 +73,15 @@ checkstyle:
 	@echo -e "\t> Running ErrCheck"
 	@./tmp/errcheck -abspath -asserts -blank
 	@echo -e "\t> Running GoSec"
-	@./tmp/gosec ./... -tests --quite
+	@./tmp/gosec ./... -tests -exclude=G302 -quite
+	@echo -e "\t> Running Golang CI - Lint"
+	@./tmp/golangci-lint run
+
 
 .PHONY: test
 test:
 	## `test`: Run tests and generate coverage report
-	@echo -e "\n   > Running tests"
-	go test ./... -race -coverprofile=./coverage/coverage.txt -covermode=atomic
+	go test ./... -race -covermode=atomic -coverprofile=./coverage/coverage.txt
 	go tool cover -html=./coverage/coverage.txt -o ./coverage/coverage.html
 
 .PHONY: test-suite

@@ -14,3 +14,6 @@ bin/**
 # Coverage file(s) generated on running test locally.
 coverage.txt
 coverage.html
+
+# Log file
+logs.txt
