@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"os"
 
 	"github.com/demon-rem/auto-sub/internals"
@@ -15,8 +14,8 @@ var logFile = "logs.txt"
 // Entry point when the script is run - sets up a logger, and hands over the flow
 // of control to the central command.
 func main() {
-	// Logging will be enabled - by default with the log level at warn. If the
-	// logging is explicitly enabled (using the flag) the level will be reduced.
+	// Logging will be enabled - by default with the log level at warn. If logging is
+	// explicitly enabled (using a flag) the log level will be reduced.
 	log.SetLevel(log.WarnLevel)
 
 	// Modify the formatter, prettifies log output
@@ -24,9 +23,6 @@ func main() {
 		TimestampFormat: "2006-01-02 15:04:05",
 		LogFormat:       "[%lvl%]: %time% - %msg%\n",
 	})
-
-	// Logging will always be enabled, if the user does not enable logging, messages
-	// above `Warn` level will be logged.
 
 	// #nosec G302 - GoSec not working with the `-exclude` tag for some reason.
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
@@ -36,8 +32,8 @@ func main() {
 
 		log.Warn("Error; failed to open a connection to the log file")
 	} else {
-		// Using MultiWriter to write to stderr and log file at the same time.
-		log.SetOutput(io.MultiWriter(os.Stderr, file))
+		// Writing logs to the log file.
+		log.SetOutput(file)
 
 		// Closing the log file when the main function ends.
 		defer func() {
