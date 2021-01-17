@@ -2,46 +2,24 @@ package internals
 
 import (
 	"errors"
+	"os"
 	"os/exec"
+	"reflect"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"bou.ke/monkey"
 )
 
 /*
-Tests the abstraction method that adds boolean flags to the root command.
+Test the method that attempts to fetch the default locations for ffmpeg and ffprobe.
 
-Testing involves ensuring that each key-value pair present in the map is a boolean flag
-present in the root command, the root command does not have any flags by default.
+Testing involves ensuring that the value of both strings remains null in case the method
+fails to fetch path to the executables, and also test the scenario when the method is
+able to successfully fetch paths to the executables to check the updated value in the
+strings
 */
-func TestSetBoolFlags(t *testing.T) {
-	// Emptying root command - ensures previous tests won't cause changes.
-	rootCommand = getRootCommand()
-
-	// The root command should not have any flags by default.
-	if rootCommand.HasFlags() {
-		t.Errorf("default flags found in root command")
-	}
-
-	// Running the method directly
-	setBoolFlags()
-
-	if !rootCommand.HasFlags() {
-		t.Errorf("root command has no flags set")
-	}
-
-	// Checking the contents of the map, and the flags present in the root command
-	for key := range boolFlags {
-		_, err := rootCommand.Flags().GetBool(key)
-		if err != nil {
-			t.Errorf(
-				"could not extract map value from flag \ntraceback: \n%v",
-				err,
-			)
-		}
-	}
-}
-
 func TestFetchLocation(t *testing.T) {
 	// Important
 	defer monkey.UnpatchAll()
@@ -52,20 +30,22 @@ func TestFetchLocation(t *testing.T) {
 		return "", errors.New("")
 	})
 
+	// Patch `os.Exit`, when an incorrect path is used as a test case, `userInput` will
+	// detect the same the and force-stop the app - this gets in the way of being able
+	// to isolate this function for test. Simply overriding the functionality of
+	// `os.Exit` to prevent this.
+	monkey.Patch(os.Exit, func(int) {})
+
 	// Running the method - both the variables should contain an error, and the global
 	// strings should be empty
-	err01, err02 := fetchLocation()
+	ffmpegPath, ffprobePath := fetchLocation()
 
-	if err01 == nil || err02 == nil {
-		t.Errorf("`fetchLocation` failed to return an error")
-	}
-
-	if ffmpegLocation != "" || ffprobeLocation != "" {
+	if ffmpegPath != "" || ffprobePath != "" {
 		t.Errorf(
 			"path to executable is not empty even when not found \n"+
 				"ffmpeg: %v \nffprobe: %v",
-			ffmpegLocation,
-			ffprobeLocation,
+			ffmpegPath,
+			ffprobePath,
 		)
 	}
 
@@ -76,22 +56,43 @@ func TestFetchLocation(t *testing.T) {
 		return testReturn, nil
 	})
 
-	err01, err02 = fetchLocation()
-	if err01 != nil || err02 != nil {
-		t.Errorf(
-			"ran into an error while attempting to locate executables "+
-				"\ntraceback: \n%v\n%v",
-			err01,
-			err02,
-		)
-	}
+	monkey.Patch(os.Exit, func(int) {})
+	ffmpegPath, ffprobePath = fetchLocation()
 
-	if ffmpegLocation != testReturn || ffprobeLocation != testReturn {
+	if ffmpegPath != testReturn || ffprobePath != testReturn {
 		t.Errorf(
 			"function `fetchLocation` fails to update global variable "+
 				"\nffprobe: %v \nffmpeg: %v",
-			ffprobeLocation,
-			ffmpegLocation,
+			ffmpegPath,
+			ffprobePath,
 		)
 	}
+}
+
+func TestExecute(t *testing.T) {
+	// Important
+	defer monkey.UnpatchAll()
+
+	// Patch the `Execute()` method to throw error - will check if the application force
+	// stops with the correct error code or not.
+	monkey.PatchInstanceMethod(
+		reflect.TypeOf(rootCommand),
+		"Execute",
+		func(command *cobra.Command) error {
+			return errors.New("temporary error")
+		},
+	)
+
+	monkey.Patch(os.Exit, func(code int) {
+		if code != UnexpectedError {
+			t.Errorf(
+				"unexpected exit code, expected %v found %v",
+				UnexpectedError,
+				code,
+			)
+		}
+	})
+
+	// Running the method.
+	Execute()
 }

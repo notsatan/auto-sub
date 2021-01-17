@@ -85,7 +85,6 @@ linters:
     - noctx
     - nolintlint
     - rowserrcheck
-    - scopelint
     - staticcheck
     - structcheck
     - stylecheck
@@ -116,10 +115,18 @@ issues:
       linters:
         - gomnd
 
-    # https://github.com/go-critic/go-critic/issues/926
+    - path: internals/
+      linters:
+        - structcheck
+
+        # https://github.com/go-critic/go-critic/issues/926
     - linters:
         - gocritic
       text: "unnecessaryDefer:"
+
+  exclude:
+    - G404  # Using `math/rand` instead of `crpyto/rand` in tests
+    - G204  # Sub-process command called using variable - pretty stupid for this project
 
 run:
   # which files to skip: they will be analyzed, but issues from them

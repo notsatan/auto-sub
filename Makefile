@@ -72,8 +72,6 @@ checkstyle:
 	@./tmp/staticcheck -tests
 	@echo -e "\t> Running ErrCheck"
 	@./tmp/errcheck -abspath -asserts -blank
-	@echo -e "\t> Running GoSec"
-	@./tmp/gosec ./... -tests -exclude=G302 -quite
 	@echo -e "\t> Running Golang CI - Lint"
 	@./tmp/golangci-lint run
 
@@ -81,7 +79,7 @@ checkstyle:
 .PHONY: test
 test:
 	## `test`: Run tests and generate coverage report
-	go test ./... -race -covermode=atomic -coverprofile=./coverage/coverage.txt
+	go test ./... -race -covermode=atomic -coverprofile=./coverage/coverage.txt -gcflags=-l
 	go tool cover -html=./coverage/coverage.txt -o ./coverage/coverage.html
 
 .PHONY: test-suite

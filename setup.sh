@@ -20,9 +20,6 @@ go install honnef.co/go/tools/cmd/staticcheck
 echo -e "\nInstalling ErrCheck"
 go install github.com/kisielk/errcheck
 
-echo -e "\nInstalling GoSec"
-go install github.com/securego/gosec/cmd/gosec
-
 echo -e "\nInstalling Golang CI - Lint"
 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.34.1
 

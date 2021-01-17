@@ -53,12 +53,6 @@ jobs:
           run: staticcheck
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sec
-        uses: grandcolline/golang-github-actions@v1.1.0
-        with:
-          run: sec
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
