@@ -2,6 +2,7 @@ package internals
 
 import (
 	"errors"
+	"github.com/demon-rem/auto-sub/internals/commons"
 	"os"
 	"os/exec"
 	"reflect"
@@ -13,68 +14,89 @@ import (
 )
 
 /*
-Test the method that attempts to fetch the default locations for ffmpeg and ffprobe.
+TestFetchLocation runs tests on edge-cases for the `FetchLocation` method - throwing an
+error if the output deviates from the expected output.
 
 Testing involves ensuring that the value of both strings remains null in case the method
-fails to fetch path to the executables, and also test the scenario when the method is
-able to successfully fetch paths to the executables to check the updated value in the
-strings
+fails to fetch path to the executables, and a test to ensure that the value returned
+by the method is correct, i.e. actual path to the executables.
 */
 func TestFetchLocation(t *testing.T) {
-	// Important
-	defer monkey.UnpatchAll()
 
-	// Testing the situation when `ffmpeg` and `ffprobe` both cannot be found - will
-	// have `exec.LookPath` return an error regardless of the input.
+	/*
+		First part of the test - ensure that the function returns empty strings in case
+		the executables can't be located. Patch `exec.LookPath` to always throw an error
+		to ensure this.
+	*/
+
+	defer monkey.Unpatch(exec.LookPath)
 	monkey.Patch(exec.LookPath, func(string) (string, error) {
 		return "", errors.New("")
 	})
 
-	// Patch `os.Exit`, when an incorrect path is used as a test case, `userInput` will
-	// detect the same the and force-stop the app - this gets in the way of being able
-	// to isolate this function for test. Simply overriding the functionality of
-	// `os.Exit` to prevent this.
+	// Prevent direct quits
+	defer monkey.Unpatch(os.Exit)
 	monkey.Patch(os.Exit, func(int) {})
 
-	// Running the method - both the variables should contain an error, and the global
-	// strings should be empty
+	// Running the method - because of patch(es), both strings should be empty
 	ffmpegPath, ffprobePath := fetchLocation()
 
+	// Test fails if either one of the returned values are not empty.
 	if ffmpegPath != "" || ffprobePath != "" {
 		t.Errorf(
-			"path to executable is not empty even when not found \n"+
-				"ffmpeg: %v \nffprobe: %v",
+			"(entryPoint/FetchLocation) path to executable not empty "+
+				"\nffmpeg: %v \nffprobe: %v",
 			ffmpegPath,
 			ffprobePath,
 		)
 	}
 
-	// If the executables are found using `exec.LookPath`, testing to ensure that the
-	// value of global variables is also updated.
+	/*
+		Second part of the test - check if the function is returning correct values of
+		or not.
+
+		Patch `os.LookPath` method to return a fixed value and check the value returned
+		by the method against this fixed value.
+	*/
+
 	const testReturn = "test path"
+	defer monkey.Unpatch(exec.LookPath)
 	monkey.Patch(exec.LookPath, func(input string) (string, error) {
+		// Return the fixed value regardless of the expected input.
 		return testReturn, nil
 	})
 
-	monkey.Patch(os.Exit, func(int) {})
+	// Run the method - both the variables should contain the fixed value
 	ffmpegPath, ffprobePath = fetchLocation()
 
+	// Fail test if either one of them does not match the fixed value
 	if ffmpegPath != testReturn || ffprobePath != testReturn {
 		t.Errorf(
-			"function `fetchLocation` fails to update global variable "+
-				"\nffprobe: %v \nffmpeg: %v",
+			"(entryPoint/FetchLocation) returned value does not match expected "+
+				"value. \nexpected: `%v` \nffprobe: `%v` \nffmpeg: `%v`",
+			testReturn,
 			ffmpegPath,
 			ffprobePath,
 		)
 	}
 }
 
-func TestExecute(t *testing.T) {
-	// Important
-	defer monkey.UnpatchAll()
+/*
+TestExecute runs tests on the Execute method.
 
-	// Patch the `Execute()` method to throw error - will check if the application force
-	// stops with the correct error code or not.
+Testing involves checking if the `Execute()` method fails, or runs into an error, the
+application will be force-stopped with the correct exit code.
+*/
+func TestExecute(t *testing.T) {
+
+	/*
+		First part of the test - check to ensure that the application force-stops in
+		case the root command returns an error while running - also check the error
+		code being returned.
+
+		Patch the `Execute()` method of the root command to always throw an error.
+	*/
+
 	monkey.PatchInstanceMethod(
 		reflect.TypeOf(rootCommand),
 		"Execute",
@@ -83,11 +105,18 @@ func TestExecute(t *testing.T) {
 		},
 	)
 
+	defer monkey.UnpatchInstanceMethod(
+		reflect.TypeOf(rootCommand),
+		"Execute",
+	)
+
+	// Patch the exit method to fail in case of an unexpected error code
+	defer monkey.Unpatch(os.Exit)
 	monkey.Patch(os.Exit, func(code int) {
-		if code != UnexpectedError {
+		if code != commons.UnexpectedError {
 			t.Errorf(
-				"unexpected exit code, expected %v found %v",
-				UnexpectedError,
+				"(entryPoint/Execute) unexpected exit code, expected %v found %v",
+				commons.UnexpectedError,
 				code,
 			)
 		}

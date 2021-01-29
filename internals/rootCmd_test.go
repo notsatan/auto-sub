@@ -3,9 +3,11 @@ package internals
 import (
 	"errors"
 	"fmt"
+	"github.com/demon-rem/auto-sub/internals/commons"
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -13,17 +15,24 @@ import (
 )
 
 /*
-Check to ensure failure if argument count exceeds expected amount.
+TestArgs runs tests for a specific scenario - namely, when the number of arguments
+passed in are more than expected.
+
+Testing involves ensuring that the application force-stops with the correct exit code
 */
 func TestArgsCheck(t *testing.T) {
-	// Undo all patches being made.
-	defer monkey.UnpatchAll()
 
+	/*
+		Perform check by using one more argument than needed, i.e. `maxInputArgs+1` or
+		more arguments being passed to the command.
+	*/
+
+	defer monkey.Unpatch(os.Exit)
 	monkey.Patch(os.Exit, func(int) {})
 
 	// Array of temporary UserInput strings.
 	testArgs := [...]string{"test", "array", "with", "random", "values", "inside", "it"}
-	for i := 0; i < len(testArgs); i++ {
+	for i := maxInputArgs + 1; i < len(testArgs); i++ {
 		// Create a slice of first `i` inputs.
 		inputArgs := testArgs[0:i]
 
@@ -34,10 +43,10 @@ func TestArgsCheck(t *testing.T) {
 		// an error should be returned.
 		result := rootCommand.Execute()
 
-		// Fail test if no error is being returned even on exceeding allowed count.
-		if len(inputArgs) > maxInputArgs && result == nil {
+		// Fail test if no error is returned
+		if result == nil {
 			t.Errorf(
-				"root command failed to raise error with %d UserInput arguments",
+				"(rootCmd/Args) root command failed to raise error with %d args",
 				len(inputArgs),
 			)
 		}
@@ -45,23 +54,49 @@ func TestArgsCheck(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
-	// Important
-	defer monkey.UnpatchAll()
-
 	// Testing the result when `Initialize` method fails - should force stop.
 	monkey.PatchInstanceMethod(
 		reflect.TypeOf(&userInput),
 		"Initialize",
-		func(input *UserInput) (int, error) {
-			return UnexpectedError, errors.New("temp error")
+		func(input *commons.UserInput) (int, error) {
+			return commons.UnexpectedError, errors.New("temp error")
 		},
 	)
 
+	defer monkey.UnpatchInstanceMethod(
+		reflect.TypeOf(&userInput),
+		"Initialize",
+	)
+
+	// Fetch the path to the test data directory - will be set as the root directory
+	// for tests.
+	path, err := os.Getwd()
+	if err != nil {
+		t.Errorf(
+			"failed to fetch current working directory \n(traceback): \n%v",
+			err,
+		)
+	} else {
+		// If path is fetched successfully, modify it to point to the test directory.
+		// This part might need to be modified if this part of the code is moved around
+		path = filepath.Join(filepath.Dir(path), "testdata")
+
+		// Set this as the root path inside the user data structure
+		userInput.RootPath = path
+
+		// When this test function ends, the value of user input will be reset;
+		// ensuring other tests aren't affected by this change
+		defer func() {
+			userInput = commons.UserInput{}
+		}()
+	}
+
+	defer monkey.Unpatch(os.Exit)
 	monkey.Patch(os.Exit, func(code int) {
-		if code != UnexpectedError {
+		if code != commons.UnexpectedError {
 			t.Errorf(
 				"unexpected exit code \nexpected: %v \nfound: %v",
-				UnexpectedError,
+				commons.UnexpectedError,
 				code,
 			)
 		}
@@ -71,7 +106,8 @@ func TestRun(t *testing.T) {
 	// the application to attempt to force-stop
 	_ = rootCommand.Execute()
 
-	monkey.UnpatchAll()
+	// Remove the patch from `userInput.Initialize()`
+	monkey.UnpatchInstanceMethod(reflect.TypeOf(&userInput), "Initialize")
 
 	// A list of all possible arguments/flags. Will be used to run the root command
 	// for varying scenarios
@@ -81,8 +117,8 @@ func TestRun(t *testing.T) {
 	// `userInput.Initialize()` to fail - the method will be separately tested.
 	listArgs := []string{
 		"--test", // Test flag - second highest precedence (after help flag)
-		"--log",  // Enables logging
-		"--echo", // Should echo back the commands being used.
+		"--log",  // Enables Logging
+		"--Echo", // Should Echo back the commands being used.
 	}
 
 	// Random number between [3, 8) - decides the number of loops to run. Each loop
@@ -91,7 +127,6 @@ func TestRun(t *testing.T) {
 	loop := rand.Intn(5) + 3
 
 	var args []string
-
 	for i := 0; i < loop; i++ {
 		// Random number - the number of arguments to be used in the current run
 		argCount := rand.Intn(len(listArgs))
@@ -112,7 +147,8 @@ func TestRun(t *testing.T) {
 }
 
 /*
-Tests the handler method to run the handler function for the test flag.
+TestHandlerTest checks the handler function that will be run in case the test flag is
+used
 
 Testing involves three cases, when either `ffmpeg` or `ffprobe` commands can't be run,
 or when both of them can't be run. Checking the output in each of these cases to ensure
@@ -138,11 +174,14 @@ func TestHandlerTest(t *testing.T) {
 	// patches and then verify if the method can correctly find the version
 	version = "4.31.12"
 
+	// Patch applied in the loop
+	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(tempCmd), "Output")
+
 	// Iterating through the possibility. Failure to run the command for `ffmpeg`, or
 	// `ffprobe` or for both (blank string)
 	for _, seq := range []string{
-		userInput.ffmpegPath,
-		userInput.ffprobePath,
+		userInput.FFmpegPath,
+		userInput.FFprobePath,
 		"",
 	} {
 		// Pin - take a look at https://github.com/kyoh86/scopelint/ for this.
@@ -161,9 +200,7 @@ func TestHandlerTest(t *testing.T) {
 			func(cmd *exec.Cmd) ([]byte, error) {
 				if seq == "" {
 					return nil, errors.New("test error")
-				}
-
-				if cmd.Path == seq {
+				} else if cmd.Path == seq {
 					return nil, errors.New("test error")
 				}
 
@@ -174,11 +211,11 @@ func TestHandlerTest(t *testing.T) {
 		)
 
 		// Once the patch is applied, running the method and checking the result
-		ffmpegVersion, ffprobeVersion := HandlerTest()
+		ffmpegVersion, ffprobeVersion := Test()
 
 		msg := ""
 
-		if (seq == "" || seq == userInput.ffmpegPath) && ffmpegVersion != "" {
+		if (seq == "" || seq == userInput.FFmpegPath) && ffmpegVersion != "" {
 			// FFmpeg version should be blank.
 			msg += fmt.Sprintf(
 				"\nmanaged to fetch ffmpeg version instead of error"+
@@ -195,7 +232,7 @@ func TestHandlerTest(t *testing.T) {
 			)
 		}
 
-		if (seq == "" || seq == userInput.ffprobePath) && ffprobeVersion != "" {
+		if (seq == "" || seq == userInput.FFprobePath) && ffprobeVersion != "" {
 			// FFprobe version should be blank
 			msg += fmt.Sprintf(
 				"managed to fetch ffprobe version instead of error "+

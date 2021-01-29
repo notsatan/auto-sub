@@ -2,6 +2,7 @@ package internals
 
 import (
 	"fmt"
+	"github.com/demon-rem/auto-sub/internals/commons"
 	"os"
 	"os/exec"
 
@@ -21,7 +22,7 @@ var (
 // ensuring changes to this value do not break tests. All arguments are to be optional.
 var maxInputArgs = 1
 
-var userInput UserInput
+var userInput commons.UserInput
 
 // Central copy of the root command.
 var rootCommand = getRootCommand()
@@ -61,10 +62,10 @@ func Execute() {
 		log.Errorf("\nEncountered error while running: %v", rootErr)
 		_, _ = fmt.Fprintf(
 			rootCommand.OutOrStderr(),
-			"\nEncountered an unexpected error! Check logs for details",
+			"\nEncountered an unexpected error! Check logs for details\n",
 		)
 
-		os.Exit(UnexpectedError)
+		os.Exit(commons.UnexpectedError)
 	}
 }
 
@@ -75,31 +76,31 @@ also added to the `boolFlags` map that keeps a track of the boolean flags and th
 functions that will handle them as needed.
 */
 func addBoolFlags() {
-	// Flag to enable/disable logging - using this will internally reduce the level
+	// Flag to enable/disable Logging - using this will internally reduce the level
 	// at which log messages are being recorded.
 	rootCommand.Flags().BoolVar(
-		&userInput.logging,
+		&userInput.Logging,
 		"log",
 		false,
-		"Enable logging for the current run",
+		"Enable Logging for the current run",
 	)
 
 	rootCommand.Flags().BoolVar(
-		&userInput.isTest,
+		&userInput.IsTest,
 		"test",
 		false,
 		"Run test to verify dependencies",
 	)
 
 	rootCommand.Flags().BoolVar(
-		&userInput.echo,
-		"echo",
+		&userInput.Echo,
+		"Echo",
 		false,
 		"Echo ffmpeg commands being fired before executing them",
 	)
 
 	rootCommand.Flags().BoolVar(
-		&userInput.isDirect,
+		&userInput.IsDirect,
 		"direct",
 		false,
 		"Use the root direct as the main directory",
@@ -113,38 +114,54 @@ Enables easy testing, and segregation of the codebase based on similarities.
 */
 func addStringFlags(ffmpegPath, ffprobePath string) {
 	rootCommand.Flags().StringVar(
-		&userInput.rootPath,
+		&userInput.RootPath,
 		"root",
 		"",
 		"Path to the root directory",
 	)
 
 	rootCommand.Flags().StringVar(
-		&userInput.ffmpegPath,
+		&userInput.FFmpegPath,
 		"ffmpeg",
 		ffmpegPath, // Empty string if not found
 		"Path to ffmpeg executable",
 	)
 
 	rootCommand.Flags().StringVar(
-		&userInput.ffprobePath,
+		&userInput.FFprobePath,
 		"ffprobe",
 		ffprobePath, // Empty string if not found
 		"Path to ffprobe executable",
 	)
 
 	rootCommand.Flags().StringVar(
-		&userInput.excludeFiles,
+		&userInput.ExcludeFiles,
 		"exclude",
 		"",
-		"List of file names to ignore",
+		"List of files to be ignored",
 	)
 
 	rootCommand.Flags().StringVar(
-		&userInput.regexExclude,
+		&userInput.RegexExclude,
 		"rexclude",
 		"",
-		"Ignore files matching this regex pattern.",
+		"Regex pattern to dictate files to be ignored",
+	)
+
+	rootCommand.Flags().StringVarP(
+		&userInput.SubTitleString,
+		"subtitle",
+		"T",
+		"",
+		"Custom title for subtitles files",
+	)
+
+	rootCommand.Flags().StringVarP(
+		&userInput.SubLang,
+		"language",
+		"L",
+		"",
+		"Subtitle language",
 	)
 }
 
