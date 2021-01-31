@@ -15,7 +15,7 @@ import (
 /*
 Possible exit codes
 */
-var (
+const (
 	// Path supplied for root directory is incorrect - points to a non-existent location
 	// or to a file.
 	RootDirectoryIncorrect = 11
@@ -25,6 +25,9 @@ var (
 
 	// Exit code for an unexpected internal error.
 	UnexpectedError = 13
+
+	// Executables not found - typically used in case FFmpeg or FFprobe can't be located
+	ExecNotFound = 14
 
 	// Exit code for a successful termination.
 	StatusOK = 0

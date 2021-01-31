@@ -41,7 +41,7 @@ func TestFetchLocation(t *testing.T) {
 	// Running the method - because of patch(es), both strings should be empty
 	ffmpegPath, ffprobePath := fetchLocation()
 
-	// Test fails if either one of the returned values are not empty.
+	// handlerTest fails if either one of the returned values are not empty.
 	if ffmpegPath != "" || ffprobePath != "" {
 		t.Errorf(
 			"(entryPoint/FetchLocation) path to executable not empty "+

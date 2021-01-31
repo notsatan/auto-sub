@@ -149,61 +149,41 @@ func getRootCommand() *cobra.Command {
 			// Log user input - logs user input if Logging is allowed.
 			userInput.Log()
 
-			// If the test flag is passed, run test and stop the flow-of-control
-			// directly - ensures that the test flag has highest priority and other
-			// flags can't be combined with the test flag.
+			// Print the versions found, and quit - ensuring that the test flag can't
+			// be combined with any other flag.
 			if userInput.IsTest {
-				output := ""
+				ffmpegVersion, ffprobeVersion := handlerTest()
+				if ffmpegVersion == "" || ffprobeVersion == "" {
+					stderr(
+						"Ran into an unexpected error! Attempting fallback \n\t"+
+							"FFmpeg Version: `%v` \n\tFFprobe Version: `%v`",
+						ffmpegVersion,
+						ffprobeVersion,
+					)
 
-				ffmpegVersion, ffprobeVersion := Test()
-				if ffmpegVersion == "" && ffprobeVersion == "" {
-					output = "Ran into an unexpected error! Attempting fallback \n" +
-						"Detected FFmpeg Version: %v \nDetected FFprobe Version: %v"
+					os.Exit(commons.ExecNotFound)
 				} else {
-					output = "Detected FFmpeg Version: %v" +
-						"\nDetected FFprobe Version: %v"
+					stderr(
+						"FFmpeg version found: `%v`"+
+							"\nFFprobe version found: `%v`",
+						ffmpegVersion,
+						ffprobeVersion,
+					)
+
+					os.Exit(commons.StatusOK)
 				}
-
-				stderr(
-					output+"\n\n",
-					ffmpegVersion,
-					ffprobeVersion,
-				)
-
-				// Direct exit. Test flag can't be combined with normal flags.
-				os.Exit(commons.StatusOK)
 			}
 
-			// Checking validity of the root path; force-stop if any case matches.
-			switch root, err := os.Stat(userInput.RootPath); {
-			case userInput.RootPath == "":
-				// Force-stop if the path is non-existent, empty or isn't a directory.
-				log.Debugf("(rootCmd/Run) empty root path detected!")
-				stderr("Error: Path to root directory is empty!\n\n")
-
-				os.Exit(commons.RootDirectoryIncorrect)
-			case err != nil:
-				log.Debugf("(rootCmd/Run) ran into error validating root path!")
-				log.Debugf("root path: %v", userInput.RootPath)
-				log.Debugf("[traceback]: %v", err)
+			// Walk through root directory - will result in error if path is incorrect.
+			if files, err := ioutil.ReadDir(userInput.RootPath);
+				userInput.RootPath == "" {
+				log.Debugf("(rootCmd/Run) root path empty!")
 				stderr(
-					"Error: Ran into an unexpected error! \n\n",
+					"Error: Empty root path detected",
 				)
 
 				os.Exit(commons.RootDirectoryIncorrect)
-			case !root.IsDir():
-				log.Debugf("(rootCmd/Run) root path isn't a directory!")
-				log.Debugf("root path: %v", userInput.RootPath)
-				stderr("Error: Root path incorrect. \nAre you sure the " +
-					"root path is correct and points to a directory?\n\n")
-
-				os.Exit(commons.RootDirectoryIncorrect)
-			}
-
-			// When the flow-of-control reaches here, it is guaranteed that the root
-			// directory exists. Walking through the contents of the root directory.
-			files, err := ioutil.ReadDir(userInput.RootPath)
-			if err != nil {
+			} else if err != nil {
 				// Force-stop the application if it runs into an unexpected error.
 				log.Warnf(
 					"(rootCmd/Run) ran into error traversing root directory: %v"+
@@ -214,19 +194,19 @@ func getRootCommand() *cobra.Command {
 
 				stderr("Error: Ran into an error with the root directory\n\n")
 				os.Exit(commons.UnexpectedError)
+			} else {
+				ffmpeg.TraverseRoot(
+					&userInput,
+					&files,
+					stderr,
+				)
 			}
-
-			ffmpeg.TraverseRoot(
-				&userInput,
-				&files,
-				stderr,
-			)
 		},
 	}
 }
 
 /*
-Test is a function designed to consume the `test` flag of the root command. This
+handlerTest is a function designed to consume the `test` flag of the root command. This
 function will attempt to test the entire setup - to be used by users after to check if
 all dependencies are present as required.
 
@@ -236,7 +216,7 @@ the same to calling method.
 Return value of empty string(s) signifies an error occurred while attempting to call
 the executable(s) - in case of an error, the traceback will be logged.
 */
-func Test() (ffmpegVersion, ffprobeVersion string) {
+func handlerTest() (ffmpegVersion, ffprobeVersion string) {
 	// Compiling a regex pattern to fetch the next word after the word `version`.'
 	// Specifically designed to be able to fetch the version tag from the output of
 	// `-version` flag. Might need to change it if the output of ffmpeg is modified in
@@ -249,7 +229,7 @@ func Test() (ffmpegVersion, ffprobeVersion string) {
 	output, err := exec.Command(userInput.FFmpegPath, "-version").Output()
 	if err != nil {
 		// If error occurs, log and proceed normally - `ffmpegVersion` will remain blank
-		log.Warnf("(rootCmd/Test) failed to fetch ffmpeg version: \n%v", err)
+		log.Warnf("(rootCmd/handlerTest) failed to fetch ffmpeg version: \n%v", err)
 	} else {
 		// Extracting version from the output of the command.
 		//
@@ -268,7 +248,7 @@ func Test() (ffmpegVersion, ffprobeVersion string) {
 	output, err = exec.Command(userInput.FFprobePath, "-version").Output()
 	if err != nil {
 		// If error occurs, log and proceed - `ffprobeVersion` will be a blank string.
-		log.Warnf("(rootCmd/Test) failed to fetch ffprobe version: \n%v", err)
+		log.Warnf("(rootCmd/handlerTest) failed to fetch ffprobe version: \n%v", err)
 	} else {
 		// Note: Using `regex.FindSubmatch` - same as above. Might need to modify this
 		// if the output of version command changes.
