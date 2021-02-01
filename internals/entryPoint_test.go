@@ -2,11 +2,12 @@ package internals
 
 import (
 	"errors"
-	"github.com/demon-rem/auto-sub/internals/commons"
 	"os"
 	"os/exec"
 	"reflect"
 	"testing"
+
+	"github.com/demon-rem/auto-sub/internals/commons"
 
 	"github.com/spf13/cobra"
 
@@ -22,7 +23,6 @@ fails to fetch path to the executables, and a test to ensure that the value retu
 by the method is correct, i.e. actual path to the executables.
 */
 func TestFetchLocation(t *testing.T) {
-
 	/*
 		First part of the test - ensure that the function returns empty strings in case
 		the executables can't be located. Patch `exec.LookPath` to always throw an error
@@ -88,7 +88,6 @@ Testing involves checking if the `Execute()` method fails, or runs into an error
 application will be force-stopped with the correct exit code.
 */
 func TestExecute(t *testing.T) {
-
 	/*
 		First part of the test - check to ensure that the application force-stops in
 		case the root command returns an error while running - also check the error

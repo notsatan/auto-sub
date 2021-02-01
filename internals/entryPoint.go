@@ -2,9 +2,10 @@ package internals
 
 import (
 	"fmt"
-	"github.com/demon-rem/auto-sub/internals/commons"
 	"os"
 	"os/exec"
+
+	"github.com/demon-rem/auto-sub/internals/commons"
 
 	log "github.com/sirupsen/logrus"
 )

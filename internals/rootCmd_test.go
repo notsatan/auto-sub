@@ -3,14 +3,15 @@ package internals
 import (
 	"errors"
 	"fmt"
-	"github.com/demon-rem/auto-sub/internals/commons"
-	"github.com/demon-rem/auto-sub/internals/ffmpeg"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/demon-rem/auto-sub/internals/commons"
+	"github.com/demon-rem/auto-sub/internals/ffmpeg"
 
 	"bou.ke/monkey"
 )
@@ -58,7 +59,6 @@ the application force-stops with the correct exit code, ensuring failure in case
 incorrect path is being used as the root path and more.
 */
 func TestArgsCheck(t *testing.T) {
-
 	/*
 		Perform check by using one more argument than needed, i.e. `maxInputArgs+1` or
 		more arguments being passed to the command.

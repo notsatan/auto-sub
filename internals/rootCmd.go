@@ -7,14 +7,15 @@ package internals
 
 import (
 	"fmt"
-	"github.com/demon-rem/auto-sub/internals/commons"
-	"github.com/demon-rem/auto-sub/internals/ffmpeg"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
+
+	"github.com/demon-rem/auto-sub/internals/commons"
+	"github.com/demon-rem/auto-sub/internals/ffmpeg"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 /*
@@ -53,7 +54,7 @@ func getRootCommand() *cobra.Command {
 				)
 
 				return fmt.Errorf(
-					"At most %d argument(s) required. Found %v.\n",
+					"at most %d argument(s) required, found %v",
 					maxInputArgs,
 					len(args),
 				)
@@ -76,14 +77,14 @@ func getRootCommand() *cobra.Command {
 						log.Warnf("(rootCmd/Args) invalid root: `%v`", args[i])
 
 						return fmt.Errorf(
-							"Invalid value for root directory\n",
+							"invalid value for root directory",
 						)
-					} else {
-						if userInput.RootPath == "" {
-							// Use this value only if the root path is not set already,
-							// ensures flag has higher priority
-							userInput.RootPath = args[i]
-						}
+					}
+
+					if userInput.RootPath == "" {
+						// Use this value only if the root path is not set already,
+						// ensures flag has higher priority
+						userInput.RootPath = args[i]
 					}
 
 				default:
@@ -95,7 +96,7 @@ func getRootCommand() *cobra.Command {
 					// to detect and fix.
 					log.Warnf("(rootCmd/Args) unexpected case on argument %v", i)
 
-					return fmt.Errorf("Unexpected internal error\n")
+					return fmt.Errorf("unexpected internal error")
 				}
 			}
 
@@ -175,15 +176,16 @@ func getRootCommand() *cobra.Command {
 			}
 
 			// Walk through root directory - will result in error if path is incorrect.
-			if files, err := ioutil.ReadDir(userInput.RootPath);
-				userInput.RootPath == "" {
+			switch files, err := ioutil.ReadDir(userInput.RootPath); {
+			case userInput.RootPath == "":
+				// Treating separately to create more specific error messages.
 				log.Debugf("(rootCmd/Run) root path empty!")
 				stderr(
 					"Error: Empty root path detected",
 				)
 
 				os.Exit(commons.RootDirectoryIncorrect)
-			} else if err != nil {
+			case err != nil:
 				// Force-stop the application if it runs into an unexpected error.
 				log.Warnf(
 					"(rootCmd/Run) ran into error traversing root directory: %v"+
@@ -194,7 +196,9 @@ func getRootCommand() *cobra.Command {
 
 				stderr("Error: Ran into an error with the root directory\n\n")
 				os.Exit(commons.UnexpectedError)
-			} else {
+
+			default:
+				// If everything is correct, pass the flow-of-control to the next part
 				ffmpeg.TraverseRoot(
 					&userInput,
 					&files,

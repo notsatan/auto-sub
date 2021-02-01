@@ -1,5 +1,5 @@
 /*
-Package FFmpeg contains the internal implementation of the backend for the application.
+Package ffmpeg contains the internal implementation of the backend for the application.
 
 This package contains the code that will actually traverse the root directory, find the
 files present in the source directories and recognize them based on their extensions.
@@ -13,14 +13,15 @@ package ffmpeg
 
 import (
 	"fmt"
-	"github.com/demon-rem/auto-sub/internals/commons"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/demon-rem/auto-sub/internals/commons"
+	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -61,8 +62,8 @@ var (
 )
 
 /*
-TraverseRoot is the central function to which the flow-of-control will be passed. Once
-the step of input validation and pre-emptive processing is completed, this function
+TraverseRoot is the main function to which the flow-of-control will be passed.
+Once input validation and pre-emptive processing are completed, this function
 will the traverse the root directory and use ffmpeg in the backend to be soft-sub
 the video files as required.
 */
@@ -71,7 +72,6 @@ func TraverseRoot(
 	files *[]os.FileInfo,
 	stderr func(string, ...interface{}),
 ) {
-
 	// Path to the output directory
 	outputDir := filepath.Join(userInput.RootPath, "result")
 
@@ -125,54 +125,29 @@ func TraverseRoot(
 }
 
 /*
-generateCmd is the central function which will generate the ffmpeg command to be used to
-soft-sub the media file along with additional chapters/attachments.
+GroupFiles acts as a helper function that traverses through a source directory, lists
+out all the file present in the source directory, and groups them into slices based on
+file extensions.
 
-This function will internally traverse a source directory, and identify the files
-present inside it as media file, subtitle, attachments, or chapters based on their
-extensions. Using this, the function will then generate a FFmpeg command that will
-combine all these files into a matroska container in the output directory.
-
-Once formed, this command will then be returned to the calling function.
+Note: The function will internally assume `sourceDir` is a valid directory, the calling
+function should perform a check before using the value
 */
-func generateCmd(
-	root string,
-	userInput *commons.UserInput,
-	outDir string,
-) (output string, status int, cmd *exec.Cmd) {
-	// Variables to contain files as they are detected in the directory. Each string
-	// will be the complete path to a file
-	//
-	// While all the lists are optional - at least one of them needs to have one or more
-	// members, if not an error will be thrown
-	var mFileFound os.FileInfo        // Media file - required.
-	var attachmentFound []os.FileInfo // Attachments - optional.
-	var subsFound []os.FileInfo       // Subtitles - optional.
-	var chaptersFound []os.FileInfo   // Chapters - optional.
-
-	// Fetching a list of all files present in this directory - `ioutil.ReadDir`
-	// returns list of files sorted by filename - sorting not required
-	files, err := ioutil.ReadDir(root)
-	if err != nil {
-		log.Warnf(
-			"(rootCmd/generateCmd) ran into an error traversing source "+
-				"directory \ndirectory: `%v` \n(traceback): %v",
-			root,
-			err,
-		)
-
-		// Force-stop since the error cannot be recovered from.
-		return "Error: Ran into an unexpected error",
-			commons.UnexpectedError,
-			cmd
-	}
+func groupFiles(sourceDir string, userInput *commons.UserInput) (
+	mediaFiles,
+	subtitles,
+	attachments,
+	chapters []os.FileInfo,
+) {
+	// Fetch list of files present in this directory - `ioutil.ReadDir` sorts using
+	// filename by default. Source path has been verified - skip checking again
+	files, _ := ioutil.ReadDir(sourceDir)
 
 	/*
 		Simple helper function designed specifically to compare if a file contains a
 		recognized extension from a list of extensions or not.
 
-		Note: The elements of the array may (or may not) contain a period as a prefix,
-		regardless, they will be treated as file extensions internally.
+		Note: Strings to be treated as extensions may (or may not) contain period as a
+		prefix - regardless, they will be treated as file extensions internally.
 	*/
 	checkExt := func(file string, array []string) bool {
 		for _, ext := range array {
@@ -192,37 +167,42 @@ func generateCmd(
 
 	// Iterate through the list of files in the source directory
 	for _, file := range files {
-
 		/*
 			Check for ignore rules - if the current file name matches an ignore rule,
 			jump to the next iteration.
 		*/
 
-		// Check to ensure regex rule is not null before using it
+		// Ensure regex rule is not null before using it
 		if userInput.RegexRule != nil && userInput.RegexRule.MatchString(file.Name()) {
 			log.Debugf(
 				"(rootCmd/generateCmd) skip file `%v` - regex exclusion rule",
-				filepath.Join(root, file.Name()),
+				filepath.Join(sourceDir, file.Name()),
 			)
 
 			// Jump to the next file
 			continue
 		}
 
-		// If regex does not match, check if file name is present in the list of files
-		// to be ignored - case insensitive.
-		for _, exclusion := range userInput.Exclusions {
+		flag := false
+
+		// Check in the list of files to ignore - case insensitive.
+		for _, ignore := range userInput.Exclusions {
 			// Value of `exclusion` will always be lowercase, no need to convert it
-			if strings.ToLower(file.Name()) == exclusion {
+			if strings.EqualFold(file.Name(), ignore) {
 				log.Debugf(
 					"(rootCmd/generateCmd) skip file `%v` - ignore rule `%v`",
-					filepath.Join(root, file.Name()),
-					exclusion,
+					filepath.Join(sourceDir, file.Name()),
+					ignore,
 				)
 
-				// Jump to next file
-				continue
+				flag = true
+				break
 			}
+		}
+
+		if flag {
+			// jump to the next file since the current file is to be ignored.
+			continue
 		}
 
 		/*
@@ -230,64 +210,93 @@ func generateCmd(
 			media file, subtitle, attachment or chapter(s) - skip if none matches
 		*/
 
-		if checkExt(file.Name(), videoExt) {
-			// If the file is recognized as a media file, check if the variable is
-			// empty or not - if the variable has a value, it means that the source
-			// directory has one or more media file(s) - throw an error.
-			if mFileFound != nil {
-				log.Warnf(
-					"(rootCmd/generateCmd) multiple media files found in a "+
-						"source directory \ndirectory: %v \nfiles: (`%v`, `%v`)",
-					root,
-					mFileFound.Name(),
-					file.Name(),
-				)
+		switch {
+		case checkExt(file.Name(), videoExt):
+			mediaFiles = append(mediaFiles, file)
 
-				return fmt.Sprintf(
-					"Error: Multiple media files found in a source directory\n"+
-						"Directory: %v\nFiles: [`%v`, `%v`]\n\n",
-					root,
-					mFileFound.Name(),
-					file.Name(),
-				), commons.UnexpectedError, cmd
-			}
+		case checkExt(file.Name(), subsExt):
+			subtitles = append(subtitles, file)
 
-			mFileFound = file
-		} else if checkExt(file.Name(), subsExt) {
-			// Add this file to the list of subtitle files
-			subsFound = append(subsFound, file)
-		} else if checkExt(file.Name(), attachmentExt) {
-			// Add this file to the list of attachments
-			attachmentFound = append(attachmentFound, file)
-		} else if checkExt(file.Name(), chaptersExt) {
-			// Add this file to the list of chapters.
-			chaptersFound = append(chaptersFound, file)
+		case checkExt(file.Name(), attachmentExt):
+			attachments = append(attachments, file)
+
+		case checkExt(file.Name(), chaptersExt):
+			chapters = append(chapters, file)
 		}
 	}
 
-	/*
-		Files present in the current source directory have been segregated into a
-		type based on their extensions - perform a basic check.
+	return mediaFiles, subtitles, attachments, chapters
+}
 
-		For one, there should be exactly one media file present in the source directory,
-		if no file is found till now, throw an error regarding the same. Also, there
-		should be at least one additional file that can be recognized (i.e. subtitle,
-		chapter, or attachment) - if either of these two check fails, throw an error.
-	*/
+/*
+generateCmd is the central function which will generate the ffmpeg command to be used to
+soft-sub the media file along with additional chapters/attachments.
 
-	if mFileFound == nil {
-		log.Debugf("(rootCmd/generateCmd) no media file found in path: `%v`", root)
+This function will internally traverse a source directory, and identify the files
+present inside it as media file, subtitle, attachments, or chapters based on their
+extensions. Using this, the function will then generate a FFmpeg command that will
+combine all these files into a matroska container in the output directory.
+
+Once formed, this command will then be returned to the calling function.
+*/
+func generateCmd(
+	root string,
+	userInput *commons.UserInput,
+	outDir string,
+) (output string, status int, cmd *exec.Cmd) {
+	// Simple function to convert a list of files into a string - used to log the files
+	// present found in the source directory and the category they are recognized as
+	stringify := func(files *[]os.FileInfo) string {
+		count := len(*files)
+		res := ""
+
+		for i := 0; i < count; i++ {
+			res += fmt.Sprintf("`%s`", (*files)[i].Name())
+			if i < count-1 {
+				res += ", "
+			}
+		}
+
+		return res
+	}
+
+	mediaFile, subsFound, attachmentFound, chaptersFound := groupFiles(
+		root,
+		userInput,
+	)
+
+	switch {
+	case len(mediaFile) == 0:
+		log.Debugf("(rootCmd/generateCmd) no media file in path: `%v`", root)
 
 		return fmt.Sprintf(
-			"Error: Failed to locate media file in the source directory: `%v`",
+			"Error: Failed to locate media file in source directory: `%v`",
 			root,
 		), commons.UnexpectedError, cmd
-	} else if len(subsFound) == 0 && len(attachmentFound) == 0 &&
-		len(chaptersFound) == 0 {
+
+	case len(mediaFile) > 1:
+		str := stringify(&mediaFile)
+
+		log.Debugf(
+			"(rootCmd/generateCmd) mutiple media files found in directory "+
+				"\ndirectory: `%v` \nfiles: %v",
+			root,
+			str,
+		)
+
+		return fmt.Sprintf(
+			"Error: Multiple media files found in source directory! "+
+				"\nSource Directory: `%v` \nFiles Found: [`%v`]",
+			root,
+			str,
+		), commons.UnexpectedError, cmd
+
+	case len(subsFound) == 0 && len(attachmentFound) == 0 &&
+		len(chaptersFound) == 0:
 		// There should be at least one subtitle/chapter/attachment file that is to be
 		// attached to the media file
 		log.Debugf(
-			"(rootCmd/generateCmd) failed to locate any additional file in `%v`",
+			"(rootCmd/generateCmd) failed to locate additional files `%v`",
 			root,
 		)
 
@@ -298,8 +307,7 @@ func generateCmd(
 	}
 
 	/*
-		If the checks are successful, form the ffmpeg command to attach these files to
-		the media file.
+		Forming the ffmpeg command to attach these files to the media file.
 	*/
 
 	// The internal command that will be fired - each string should be an individual
@@ -312,7 +320,7 @@ func generateCmd(
 	// command internally.
 	cmdRaw := []string{
 		"-i",
-		filepath.Join(root, mFileFound.Name()),
+		filepath.Join(root, mediaFile[0].Name()),
 	}
 
 	/*
@@ -324,7 +332,6 @@ func generateCmd(
 		being used - this will be done after copy markers are added to the command.
 	*/
 	for _, sub := range subsFound {
-
 		cmdRaw = append(
 			cmdRaw,
 			"-i",
@@ -338,7 +345,7 @@ func generateCmd(
 		Adding copy markers to the command - these markers ensure that the original
 		stream(s) are copied as original - without any stream selection or processing
 		by ffmpeg. This step ensures that video with multiple audio/subtitle streams
-		copied over; the default ffmpeg behaviour is to select one stream of each
+		copied over; the default ffmpeg behavior is to select one stream of each
 		type - i.e. a single audio stream, a single video stream and a single subtitle
 		stream
 	*/
@@ -439,34 +446,18 @@ func generateCmd(
 
 				// Trim extension from original file name
 				strings.TrimSuffix(
-					mFileFound.Name(),
-					filepath.Ext(mFileFound.Name()),
+					mediaFile[0].Name(),
+					filepath.Ext(mediaFile[0].Name()),
 				),
 			),
 		),
 	)
 
-	// Simple function to convert a list of files into a string - used to log the files
-	// present found in the source directory and the category they are recognized as
-	stringify := func(files *[]os.FileInfo) string {
-		count := len(*files)
-		res := ""
-
-		for i := 0; i < count; i++ {
-			res += fmt.Sprintf("`%s`", (*files)[i].Name())
-			if i < count-1 {
-				res += ", "
-			}
-		}
-
-		return res
-	}
-
 	log.Debugf(
 		"Source Directory: %s \nMediaFile: %s \nSubtitles: %s \nChapters: %s"+
 			"\nAttachments: %s\n\n",
 		root,
-		mFileFound.Name(),
+		mediaFile[0].Name(),
 		stringify(&subsFound),
 		stringify(&chaptersFound),
 		stringify(&attachmentFound),

@@ -1,9 +1,6 @@
 linters-settings:
   dupl:
     threshold: 100
-  funlen:
-    lines: 100
-    statements: 50
   gci:
     local-prefixes: github.com/golangci/golangci-lint
   goconst:
@@ -20,7 +17,7 @@ linters-settings:
       - wrapperFunc
       - unnamedResult
   gocyclo:
-    min-complexity: 15
+    min-complexity: 20
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
   golint:
@@ -64,7 +61,6 @@ linters:
     - dupl
     - errcheck
     - exhaustive
-    - funlen
     - gochecknoinits
     - goconst
     - gocritic
