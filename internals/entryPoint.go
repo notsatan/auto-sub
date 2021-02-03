@@ -94,13 +94,6 @@ func addBoolFlags() {
 	)
 
 	rootCommand.Flags().BoolVar(
-		&userInput.Echo,
-		"Echo",
-		false,
-		"Echo ffmpeg commands being fired before executing them",
-	)
-
-	rootCommand.Flags().BoolVar(
 		&userInput.IsDirect,
 		"direct",
 		false,

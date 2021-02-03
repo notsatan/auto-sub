@@ -59,9 +59,6 @@ type UserInput struct {
 	// Boolean containing value of test flag
 	IsTest bool
 
-	// Boolean containing value of Echo flag.
-	Echo bool
-
 	// String with file names that are to be ignored.
 	ExcludeFiles string
 
@@ -122,6 +119,46 @@ func (userInput *UserInput) Initialize() (int, error) {
 }
 
 /*
+IgnoreFile acts as a wrapper method that internally decides if a file is supposed to
+be ignored or not based on the name of the file.
+
+This function will internally use the value of `userInput.Exclusions` and
+`userInput.RegexRule` to match against the name of the file. A response of true
+indicates that the file is to be skipped
+*/
+func (userInput *UserInput) IgnoreFile(sourceDir, fileName *string) bool {
+	// Match file name against regex pattern
+	if userInput.RegexRule != nil && userInput.RegexRule.MatchString(*fileName) {
+		log.Debugf(
+			"(userInput/IgnoreFile) skip file; match against regex exclusion! "+
+				"\nsource dir: `%v` \nfile name: `%v`",
+			*sourceDir,
+			*fileName,
+		)
+
+		return true
+	}
+
+	// Compare file name against all the list of file names to be excluded
+	for _, exclude := range userInput.Exclusions {
+		if strings.EqualFold(*fileName, exclude) {
+			log.Debugf(
+				"(userInput/IgnoreFile) skip file; match with exclusion rule!"+
+					"\nexclusion rule: `%v` \nsource dir: `%v` \nfile name: `%v`",
+				exclude,
+				*sourceDir,
+				*fileName,
+			)
+
+			return true
+		}
+	}
+
+	// No match occurred.
+	return false
+}
+
+/*
 Log simply logs the values values present in the structure. Acts as a convenience
 method, a simple call to this method ensures that all values in the structure will be
 logged as required.
@@ -132,7 +169,6 @@ func (userInput *UserInput) Log() {
 		"FFprobe Executable: %v\n"+
 		"Logging Enabled: %v\n"+
 		"Test Mode: %v\n"+
-		"Echo Commands: %v\n"+
 		"Exclusions: `%v`\n"+
 		"Inferred Exclusions: `%v`\n"+
 		"Regex Exclusions: `%v`\n",
@@ -141,7 +177,6 @@ func (userInput *UserInput) Log() {
 		userInput.FFprobePath,
 		userInput.Logging,
 		userInput.IsTest,
-		userInput.Echo,
 		userInput.ExcludeFiles,
 		userInput.Exclusions,
 		userInput.RegexExclude,

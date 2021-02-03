@@ -25,6 +25,10 @@ jobs:
           path: auto-subs
           key: auto-subs-${{ hashFiles('go.mod') }}-${{ matrix.go-version }}
 
+      - name: Install FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v1-beta
+        id: setup-ffmpeg
+
       - name: Install Go
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-go@v2
@@ -36,7 +40,7 @@ jobs:
         run: go mod download
 
       - name: Test
-        run: go test ./... -race -coverprofile=coverage.txt -covermode=atomic
+        run: go test ./... -race -coverprofile=coverage.txt -covermode=atomic -gcflags=-l
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v1

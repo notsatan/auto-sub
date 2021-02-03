@@ -90,11 +90,11 @@ func TestArgsCheck(t *testing.T) {
 	}
 
 	/*
-		Second part of testing involves checking ensuring failure in case the root root
-		is incorrect, with the correct exit code
+		Second part of testing involves checking ensuring failure in case the root
+		is incorrect
 	*/
 
-	// Using root to test data directory as the root
+	// Using test data directory as the root
 	root, err := os.Getwd()
 	if err != nil {
 		t.Errorf(
@@ -438,6 +438,7 @@ func TestRun(t *testing.T) {
 	monkey.Unpatch(os.Exit)
 	userInput.IsTest = false
 
+	// nolint
 	// Temporary patch - ensure application does not force-stop due to failure in
 	// `userInput.Initialize()`
 	monkey.PatchInstanceMethod(

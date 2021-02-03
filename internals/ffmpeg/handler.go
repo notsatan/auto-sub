@@ -125,6 +125,29 @@ func TraverseRoot(
 }
 
 /*
+CheckExt is a helper function designed to check if a file contains a extension from a
+list of extensions.
+
+Strings to be treated as extensions may (or may not) contain period as a prefix;
+regardless, they will be treated as file extension(s) internally.
+*/
+func checkExt(fileName string, extensions []string) bool {
+	for _, ext := range extensions {
+		// Trim any number of period(s) - if present - from the left, and add one.
+		// Converts `mp4` -> `.mp4`; and ensures that `.mp4` stays the same.
+		ext = "." + strings.TrimLeft(ext, ".")
+
+		// Check if the file name ends with this extension
+		if strings.HasSuffix(fileName, ext) {
+			return true
+		}
+	}
+
+	// Indicate that the file extension is not present in this array.
+	return false
+}
+
+/*
 GroupFiles acts as a helper function that traverses through a source directory, lists
 out all the file present in the source directory, and groups them into slices based on
 file extensions.
@@ -142,71 +165,16 @@ func groupFiles(sourceDir string, userInput *commons.UserInput) (
 	// filename by default. Source path has been verified - skip checking again
 	files, _ := ioutil.ReadDir(sourceDir)
 
-	/*
-		Simple helper function designed specifically to compare if a file contains a
-		recognized extension from a list of extensions or not.
-
-		Note: Strings to be treated as extensions may (or may not) contain period as a
-		prefix - regardless, they will be treated as file extensions internally.
-	*/
-	checkExt := func(file string, array []string) bool {
-		for _, ext := range array {
-			// Trim any number of period(s) - if present - from the left, and add one.
-			// Converts `mp4` -> `.mp4`; and ensures that `.mp4` stays the same.
-			ext = "." + strings.TrimLeft(ext, ".")
-
-			// Check if the file name ends with this extension
-			if strings.HasSuffix(file, ext) {
-				return true
-			}
-		}
-
-		// Indicate that the file extension is not present in this array.
-		return false
-	}
-
 	// Iterate through the list of files in the source directory
 	for _, file := range files {
-		/*
-			Check for ignore rules - if the current file name matches an ignore rule,
-			jump to the next iteration.
-		*/
-
-		// Ensure regex rule is not null before using it
-		if userInput.RegexRule != nil && userInput.RegexRule.MatchString(file.Name()) {
-			log.Debugf(
-				"(rootCmd/generateCmd) skip file `%v` - regex exclusion rule",
-				filepath.Join(sourceDir, file.Name()),
-			)
-
-			// Jump to the next file
-			continue
-		}
-
-		flag := false
-
-		// Check in the list of files to ignore - case insensitive.
-		for _, ignore := range userInput.Exclusions {
-			// Value of `exclusion` will always be lowercase, no need to convert it
-			if strings.EqualFold(file.Name(), ignore) {
-				log.Debugf(
-					"(rootCmd/generateCmd) skip file `%v` - ignore rule `%v`",
-					filepath.Join(sourceDir, file.Name()),
-					ignore,
-				)
-
-				flag = true
-				break
-			}
-		}
-
-		if flag {
-			// jump to the next file since the current file is to be ignored.
+		if fName := file.Name(); userInput.IgnoreFile(&sourceDir, &fName) {
+			// Check if file name is to be skipped - jump to next iteration if current
+			// file is to be skipped
 			continue
 		}
 
 		/*
-			Since the file is not to be ignored, attempt to recognize the file as a
+			If the file is not to be ignored, attempt to recognize the file as a
 			media file, subtitle, attachment or chapter(s) - skip if none matches
 		*/
 
