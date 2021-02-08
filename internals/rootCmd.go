@@ -6,10 +6,11 @@ functions/methods/structures and any other internal components that are required
 package internals
 
 import (
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 
 	"github.com/demon-rem/auto-sub/internals/commons"
@@ -39,62 +40,42 @@ func getRootCommand() *cobra.Command {
 		Example: "",
 		Version: version,
 
-		// Ensure number of arguments does not exceed expectations.
 		Args: func(cmd *cobra.Command, args []string) error {
-			// This function is run before Logging can be modified - as such, stuff
-			// inside this function should be logged at `Warn` or higher.
-
-			if len(args) > maxInputArgs {
-				// Directly return an error if arguments passed exceeds allowed count.
-				log.Warnf(
-					"(rootCmd/Args) found %v args instead of %v! \n\nArgs: `%v`",
-					len(args),
-					maxInputArgs,
-					args,
-				)
-
-				return fmt.Errorf(
-					"at most %d argument(s) required, found %v",
-					maxInputArgs,
-					len(args),
-				)
+			// Flags will already be set, changing the value of the logger if required
+			if userInput.Logging {
+				log.SetLevel(log.TraceLevel)
 			}
 
-			// If the command has `maxInputArgs` or less, making sense of each argument
-			// and assigning values to them.
-
-			// Iterate through each argument and use the value in it as required - using
-			// a for-loop with a switch statement; ensures that changes in the future
-			// can be easily implemented. Throwing an error default case - ensuring that
-			// unhandled cases will result in a crash instead of simply ignoring the
-			// input - easier to detect and fix.
+			// Iterate through each arg. Using a switch block to improve readability.
+			// Default case should throw an error - ensures each argument is handled,
+			// and if one isn't, the application crashes
 			for i := 0; i < len(args); i++ {
 				switch i {
 				case 0:
-					// The first argument will be full path to the directory which is
-					// to be used as root
-					if dir, err := os.Stat(args[0]); err != nil || !dir.IsDir() {
-						log.Warnf("(rootCmd/Args) invalid root: `%v`", args[i])
-
-						return fmt.Errorf(
-							"invalid value for root directory",
+					// Path to root directory - skip checking validity. Will check
+					// root path obtained through the flag or as an argument at once
+					//
+					// Skip this value if the variable is set already - ensures the
+					// flag has a higher priority
+					if userInput.RootPath == "" {
+						userInput.RootPath = args[i]
+					} else {
+						log.Debugf(
+							"(rootCmd/Args) ignoring argument #%d, root path "+
+								"already present \nignoring value: \"%s\"",
+							i,
+							args[i],
 						)
 					}
 
-					if userInput.RootPath == "" {
-						// Use this value only if the root path is not set already,
-						// ensures flag has higher priority
-						userInput.RootPath = args[i]
-					}
-
 				default:
-					// This default case is set to throw an error - if more arguments
-					// are added in the future, each case will need to be individually
-					// handled. If the count for allowed argument(s) is increased
-					// without handling the argument in this switch statement, a crash
-					// will occur, converting a logic bug into a runtime error - easier
-					// to detect and fix.
-					log.Warnf("(rootCmd/Args) unexpected case on argument %v", i)
+					// Throw an error if any valid argument is being ignored - converts
+					// logical error into runtime error; at least easier to detect :p
+					log.Warnf(
+						"(rootCmd/Args) unexpected argument %d\nvalue: `%s`",
+						i,
+						args[i],
+					)
 
 					return fmt.Errorf("unexpected internal error")
 				}
@@ -103,108 +84,115 @@ func getRootCommand() *cobra.Command {
 			return nil
 		},
 
-		// The main method that will handle the back-end when the command is executed.
-		Run: func(cmd *cobra.Command, args []string) {
-			/*
-				Simple internal method to be able to directly send stuff to `stderr`
-				acts as a layer of abstraction - and for ease of use.
+		/*
+			Runs after `command.Args()`, by the time this function runs, only the flags
+			and args have been parsed.
 
-				Note: Output that is meant to be read by the user should be sent to
-				`stderr` instead of `stdout`.
-			*/
-			stderr := func(format string, printable ...interface{}) {
-				_, _ = fmt.Fprintf(
-					cmd.OutOrStderr(),
-					format,
-					printable...,
-				)
+			This method will simply validate user input - failing if the input is
+			invalid.
+		*/
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// Setting up the output stream if not set already - this check will be
+			// useful when multiple copies of the root command are being created,
+			// especially during tests.
+			if commons.GetOutput() == nil {
+				// Deciding the stream to which output is to be written.
+				oStream := cmd.OutOrStderr()
+				commons.SetOutput(oStream)
 			}
 
-			// When the flow-of-control reaches this part, values have been inferred
-			// from the flags being used and have been assigned to the variables
-			// as required.
+			// Validate user input. Force-stop if this step fails. The method call will
+			// internally validate the root path, and log user input.
 			//
-			// Running initialization method to allow the structure to internally
-			// process user input as the first step.
-			errCode, err := userInput.Initialize()
-
-			// If user input was unexpected/incorrect, the method call above will
-			// return an error for the same. Using that error to force-stop the app
-			if err != nil || errCode != commons.StatusOK {
-				// Force-stop if an error occurred.
-				log.Warnf("(rootCmd/Run) unexpected user input: %v", err)
-				stderr(
-					"Error: Ran into an error while processing input. " +
-						"Check logs for details!\n\n",
+			// Note: The function will allow flow-of-control to pass even if the root
+			// path is empty as long as the test flag is present
+			if errCode, err := userInput.Initialize(); err != nil ||
+				errCode != commons.StatusOK {
+				log.Warnf(
+					"(rootCmd/RunE) unexpected input\nerror: `%v`\nexit code: %d",
+					err,
+					errCode,
 				)
 
+				// Form output message depending on exit code
+				outMsg := ""
+				switch errCode {
+				case commons.RegexError:
+					outMsg = "Error: Failed to compile the regex pattern"
+
+				case commons.UnexpectedError:
+					outMsg = "Error: Path to root directory is incorrect"
+
+				case commons.RootDirectoryIncorrect:
+					// Will be the case if path to root directory is not present and
+					// `test` flag is not used.
+					//
+					// Returning error to have `RunE` function display command help
+					return errors.New("path to root directory not found")
+
+				default:
+					// Will end up here in case of `UnexpectedError` or any other
+					// error code introduced in the future.
+
+					outMsg = "Error: Ran into an unexpected error. Check the logs for" +
+						" details"
+				}
+
+				commons.Printf(outMsg + "\n\n")
 				os.Exit(errCode)
 			}
 
-			// Modify the log level if needed.
+			return nil
+		},
+
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if userInput.Logging {
-				log.SetLevel(log.TraceLevel)
-				stderr("\nLogging enabled \nLog level set to `Trace`\n")
+				// Log level will be internally modified while validating user input,
+				// printing confirmation to the screen in here
+				commons.Printf("\nLogging enabled \nLog level set to `Trace`\n")
 			}
 
-			// Log user input - logs user input if Logging is allowed.
-			userInput.Log()
-
-			// Print the versions found, and quit - ensuring that the test flag can't
-			// be combined with any other flag.
+			// Handle the test flag - once done, direct exit, ensuring that the test
+			// flag can't be combined with any other flag
 			if userInput.IsTest {
 				ffmpegVersion, ffprobeVersion := handlerTest()
 				if ffmpegVersion == "" || ffprobeVersion == "" {
-					stderr(
+					commons.Printf(
 						"Ran into an unexpected error! Attempting fallback \n\t"+
-							"FFmpeg Version: `%v` \n\tFFprobe Version: `%v`",
+							"FFmpeg Version: %v\n\tFFprobe Version: %v\n\n",
 						ffmpegVersion,
 						ffprobeVersion,
 					)
 
 					os.Exit(commons.ExecNotFound)
 				} else {
-					stderr(
-						"FFmpeg version found: `%v`"+
-							"\nFFprobe version found: `%v`",
+					commons.Printf(
+						"FFmpeg version found: %v\n"+
+							"FFprobe version found: %v\n\n",
 						ffmpegVersion,
 						ffprobeVersion,
 					)
 
+					// Exit using this exit code - this is being tested against
 					os.Exit(commons.StatusOK)
 				}
 			}
 
-			// Walk through root directory - will result in error if path is incorrect.
-			switch files, err := ioutil.ReadDir(userInput.RootPath); {
-			case userInput.RootPath == "":
-				// Treating separately to create more specific error messages.
-				log.Debugf("(rootCmd/Run) root path empty!")
-				stderr(
-					"Error: Empty root path detected",
-				)
+			// TODO: The root directory is to be treated as the source directory
 
-				os.Exit(commons.RootDirectoryIncorrect)
-			case err != nil:
-				// Force-stop the application if it runs into an unexpected error.
-				log.Warnf(
-					"(rootCmd/Run) ran into error traversing root directory: %v"+
-						"\n(traceback): %v",
+			// Root path has already been validated, simply pass the flow of control
+			// to the next section
+			ffmpeg.TraverseRoot(
+				&userInput,
+
+				// Defaulting output directory to `<root-dir>/auto-sub [output]`
+				filepath.Join(
 					userInput.RootPath,
-					err,
-				)
+					fmt.Sprintf("%s [output]", title),
+				),
+			)
 
-				stderr("Error: Ran into an error with the root directory\n\n")
-				os.Exit(commons.UnexpectedError)
-
-			default:
-				// If everything is correct, pass the flow-of-control to the next part
-				ffmpeg.TraverseRoot(
-					&userInput,
-					&files,
-					stderr,
-				)
-			}
+			return nil
 		},
 	}
 }

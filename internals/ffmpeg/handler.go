@@ -31,7 +31,7 @@ Files ending with one of these known extensions will be treated as such (for exa
 a file have an extension from `videoExt` will be considered as the main video file).
 
 Note: While the elements in these array(s) are file extensions, they do not contain
-a period - this will be added during runtime comparison - just for simplicity.
+period - will be added during runtime while comparing.
 */
 var (
 	videoExt = []string{
@@ -68,48 +68,56 @@ will the traverse the root directory and use ffmpeg in the backend to be soft-su
 the video files as required.
 */
 func TraverseRoot(
-	userInput *commons.UserInput,
-	files *[]os.FileInfo,
-	stderr func(string, ...interface{}),
+	input *commons.UserInput, // user input
+	resDir string, // full path to output directory
 ) {
-	// Path to the output directory
-	outputDir := filepath.Join(userInput.RootPath, "result")
-
 	// Check if result directory exists in the root directory, if not, attempt to
 	// create one - force stop if the latter fails.
-	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
+	if _, err := os.Stat(resDir); os.IsNotExist(err) {
 		log.Debugf(
 			"(rootCmd/TraverseRoot) creating result dir in: `%v`",
-			userInput.RootPath,
+			input.RootPath,
 		)
 
-		if err = os.Mkdir(outputDir, os.ModeDir); err != nil {
+		if err = os.Mkdir(resDir, os.ModeDir); err != nil {
 			log.Warnf(
-				"(rootCmd/TraverseRoot) failed to create result directory "+
-					"in: `%v`\n Error Traceback: %v\n",
-				userInput.RootPath,
+				"(rootCmd/TraverseRoot) failed to create directory: \"%v\""+
+					"\nerror traceback: `%v`\n",
+				resDir,
 				err,
 			)
 
-			stderr("Error: Failed to create destination directory: `%v`\n\n", outputDir)
+			commons.Printf(
+				"Error: failed to create the destination directory, check logs " +
+					"for details",
+			)
+
 			os.Exit(commons.UnexpectedError)
 		}
 	}
 
+	// Iterate through the root directory, fetching a list of all items present in it
+	var files []os.FileInfo = nil
+	if file, err := ioutil.ReadDir(input.RootPath); err != nil {
+		log.Debugf("()")
+	} else {
+		files = file
+	}
+
 	// Iterate through the root directory.
-	for _, f := range *files {
-		if f.IsDir() && filepath.Join(userInput.RootPath, f.Name()) != outputDir {
+	for _, f := range files {
+		if f.IsDir() && filepath.Join(input.RootPath, f.Name()) != resDir {
 			// If the item is a directory - treat it as the source directory.
 			output, status, cmd := generateCmd(
-				filepath.Join(userInput.RootPath, f.Name()),
-				userInput,
-				outputDir,
+				filepath.Join(input.RootPath, f.Name()),
+				input,
+				resDir,
 			)
 
 			// Output will contain message to be printed to the user
 			if output != "" {
 				// If the output message is not empty, printing it.
-				stderr(output)
+				commons.Printf(output)
 			}
 
 			// If the status code returned is not ok, force-stop the application.

@@ -69,7 +69,7 @@ checkstyle:
 	@echo -e "\t> Running GoLint"
 	@./tmp/golint -set_exit_status ./...
 	@echo -e "\t> Running StaticCheck"
-	@./tmp/staticcheck -tests
+	@./tmp/staticcheck ./...
 	@echo -e "\t> Running ErrCheck"
 	@./tmp/errcheck -abspath -asserts -blank
 	@echo -e "\t> Running Golang CI - Lint"

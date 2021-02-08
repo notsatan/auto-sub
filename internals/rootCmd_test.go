@@ -64,6 +64,8 @@ func TestArgsCheck(t *testing.T) {
 		more arguments being passed to the command.
 	*/
 
+	cmd := getRootCommand()
+
 	defer monkey.Unpatch(os.Exit)
 	monkey.Patch(os.Exit, func(int) {})
 
@@ -74,11 +76,11 @@ func TestArgsCheck(t *testing.T) {
 		inputArgs := testArgs[0:i]
 
 		// Set this slice to be the UserInput for the root command.
-		rootCommand.SetArgs(inputArgs)
+		cmd.SetArgs(inputArgs)
 
 		// Running the command. If the amount of arguments passed exceeds `maxInputArgs`
 		// an error should be returned.
-		result := rootCommand.Execute()
+		result := cmd.Execute()
 
 		// Fail test if no error is returned
 		if result == nil {
@@ -88,11 +90,6 @@ func TestArgsCheck(t *testing.T) {
 			)
 		}
 	}
-
-	/*
-		Second part of testing involves checking ensuring failure in case the root
-		is incorrect
-	*/
 
 	// Using test data directory as the root
 	root, err := os.Getwd()
@@ -106,110 +103,48 @@ func TestArgsCheck(t *testing.T) {
 		root = filepath.Join(filepath.Dir(root), "testdata")
 	}
 
-	// Patch `os.Exit` to fail test if the exit code is anything other than OK.
-	defer monkey.Unpatch(os.Exit)
-	monkey.Patch(os.Exit, func(code int) {
-		if code != commons.StatusOK {
-			t.Errorf(
-				"(rootCmd/Args) unexpected exit code found instead of "+
-					"clean exit! \nexpected exit code: %v \nfound exit code: %v",
-				commons.StatusOK,
-				code,
-			)
-		}
-	})
-
-	// Reset user input values when the function ends.
-	defer func() {
-		userInput = commons.UserInput{}
-	}()
-
 	/*
-		Multiple tests - test the result with path to a valid directory, a file and a
-		non-existent path.
-	*/
-	for _, path := range []string{
-		root,                            // correct path, should pass
-		filepath.Join(root, ".gitkeep"), // path to file, should fail
-		filepath.Join(root, "non_existent_file.txt"), // incorrect path, should fail
-	} {
-		// Re-initialize user input at every iteration.
-		userInput = commons.UserInput{}
-
-		// Instead of running the entire root command (with `rootCommand.Execute()`),
-		// running the function to be tested directly while passing the current path
-		// as an input argument.
-		res := rootCommand.Args(rootCommand, []string{path})
-
-		if item, err := os.Stat(path); err != nil || !item.IsDir() {
-			// If `path` isn't a valid directory, `res` should be non-null
-			if res == nil {
-				t.Errorf(
-					"(rootCmd/Args) function failed to detect error with "+
-						"invalid directory! \npath used: `%v` \nexpected error: `%v`",
-					path,
-					err,
-				)
-			}
-		} else if item.IsDir() && res != nil {
-			// If `path` is a valid directory, `res` should be null
-			t.Errorf(
-				"(rootCmd/args) function fails even with a valid directory! "+
-					"\npath used: `%v` \nerror returned: %v",
-				path,
-				res,
-			)
-		}
-	}
-
-	/*
-		Third check, ensure failure if the arguments accepted count is directly
-		increased.
-
-		This is meant as a future guard. If the number of arguments are to be increased
-		in the future, apart from changing the value of `maxInputArgs`, each input
-		argument will need to be individually handled. If any one of them is missed,
-		the application should throw a runtime error - converting a logical bug into
-		a runtime error.
+		Ensure failure if the arguments accepted count is simply increased - without
+		handling the new argument in the switch block
 	*/
 
-	inc := 3
-
-	// Directly increasing the value of accepted arguments by three.
+	// Increase number of arguments allowed
+	const inc = 3
 	maxInputArgs += inc
 
-	// Array of (valid) arguments - making sure that *only* valid arguments pass should
-	// be tested separately.
+	// Array of (valid) arguments - ensures that the first `maxInputArgs` arguments
+	// pass checks, without this, error will be thrown because arguments are invalid
 	args := []string{root}
 
-	// Array of additional arguments, any random gibberish goes - should have at least
-	addArgs := []string{"test", "args", "here"}
+	// Array of additional arguments, any random gibberish goes
+	addArgs := [inc]string{"test", "args", "here"}
 
-	// Note: Start the loop with `1`
+	// Note: Start the loop with `1`, at `i = 0` new argument(s) will not be added,
+	// causing no failure
 	for i := 1; i <= inc; i++ {
-		// Forming an array containing the arguments to pass - consists of correct
-		// arguments, followed by the first `i` arguments from additional arguments.
-		input := append(
+		// Input for each case - append incorrect arguments after the correct ones
+		in := append(
 			args,
 			addArgs[0:i]...,
 		)
 
-		// Running the command function - should fail every time
-		result := rootCommand.Args(
-			rootCommand,
-			input,
+		// Running the function to be test - should fail every time
+		res := cmd.Args(
+			cmd,
+			in,
 		)
 
-		if result == nil {
+		// Test fails if no error occurs
+		if res == nil {
 			t.Errorf(
-				"(rootCmd/Args) function accepts more arguments than required."+
-					`\nargs passed: ["%v"]`,
-				strings.Join(input, `", `),
+				"(rootCmd/Args) function accepts more arguments than required\n"+
+					`args passed: ["%v"]`,
+				strings.Join(in, `", "`),
 			)
 		}
 	}
 
-	// Reset the value of the variable once done
+	// Reset the value of the variable once done - will corrupt other tests without this
 	maxInputArgs -= inc
 }
 
@@ -225,12 +160,6 @@ It is expected that the test handler function will return a blank string instead
 version if fails to fetch the version for any case.
 */
 func TestHandlerTest(t *testing.T) {
-	defer monkey.Unpatch(ffmpeg.TraverseRoot)
-	monkey.Patch(
-		ffmpeg.TraverseRoot,
-		func(*commons.UserInput, *[]os.FileInfo, func(string, ...interface{})) {},
-	)
-
 	/*
 		Testing the scenario when attempting to run the commands to fetch versions
 		results in a failure - expect to get a blank corresponding string as a result
@@ -329,17 +258,19 @@ this will happen in case of incorrect input data.
 */
 func TestInitializeFailure(t *testing.T) {
 	/*
-		Ensure the application is force-stopped if `userInput.Initialize()`
-		fails. Mimic this with a patch.
+		Ensure the application is force-stopped if `userInput.Initialize()` fails.
+		Mimic this with a patch.
 	*/
 
 	userInput = testConfig(t)
 	defer resetConfig()
 
+	cmd := getRootCommand()
+
 	defer monkey.Unpatch(ffmpeg.TraverseRoot)
 	monkey.Patch(
 		ffmpeg.TraverseRoot,
-		func(*commons.UserInput, *[]os.FileInfo, func(string, ...interface{})) {},
+		func(*commons.UserInput, string) {},
 	)
 
 	monkey.PatchInstanceMethod(
@@ -367,9 +298,8 @@ func TestInitializeFailure(t *testing.T) {
 		}
 	})
 
-	// First run, will trip the failure point when `Initialize` method is run, causing
-	// the application to attempt to force-stop
-	rootCommand.Run(rootCommand, []string{})
+	// Will trip the failure point when `Initialize` method is run
+	_ = cmd.PreRunE(cmd, []string{})
 }
 
 func TestRun(t *testing.T) {
@@ -377,10 +307,12 @@ func TestRun(t *testing.T) {
 	userInput = testConfig(t)
 	defer resetConfig()
 
+	cmd := getRootCommand()
+
 	defer monkey.Unpatch(ffmpeg.TraverseRoot)
 	monkey.Patch(
 		ffmpeg.TraverseRoot,
-		func(*commons.UserInput, *[]os.FileInfo, func(string, ...interface{})) {},
+		func(*commons.UserInput, string) {},
 	)
 
 	/*
@@ -398,7 +330,7 @@ func TestRun(t *testing.T) {
 	// Create temporary structure to contain two strings, an array of such structures
 	// will be used as the values returned by `handlerTest()`, with a new patch being
 	// applied with every iteration of the loop.
-	for _, res := range []struct{ key, value string }{
+	for i, res := range []struct{ key, value string }{
 		{"", ""},   // Complete failure
 		{ver, ""},  // Partial failure
 		{"", ver},  // Partial failure
@@ -414,23 +346,31 @@ func TestRun(t *testing.T) {
 			if res.key == "" || res.value == "" {
 				if code != commons.ExecNotFound {
 					t.Errorf(
-						"(rootCmd/Run) exit code incorrect when executables "+
-							"cannot be found. \nexpected code: %v \nfound: %v",
+						"(rootCmd/RunE) exit code incorrect when executables "+
+							"cannot be found.\nexpected code: %v \nfound: %v"+
+							"\ninput set: %d",
 						commons.ExecNotFound,
 						code,
+						i,
 					)
 				}
 			} else if code != commons.StatusOK {
 				t.Errorf(
-					"(rootCmd/Run) incorrect exit code returned, expected a "+
-						"clean exit. \nexit code found: %v",
+					"(rootCmd/RunE) incorrect exit code returned, expected a "+
+						"clean exit. \nexit code found: %v\ninput set: %d",
 					code,
+					i,
 				)
 			}
 		})
 
 		// Finally, run the main method
-		rootCommand.Run(rootCommand, []string{})
+		if err := cmd.RunE(cmd, []string{}); err != nil {
+			t.Errorf(
+				"(rootCmd/RunE) fail to run the main method! \nerror: %v",
+				err,
+			)
+		}
 	}
 
 	// Undo the patches applied, and disable the test flag
@@ -466,7 +406,7 @@ func TestRun(t *testing.T) {
 			if (path == "" && code != commons.RootDirectoryIncorrect) ||
 				(path != "" && code != commons.UnexpectedError) {
 				t.Errorf(
-					"(rootCmd/Run) unexpected exit code found! \nroot path: "+
+					"(rootCmd/RunE) unexpected exit code found! \nroot path: "+
 						"`%v` \nexpected exit code: %v \nexit code found: %v",
 					path,
 					commons.UnexpectedError,
@@ -475,7 +415,7 @@ func TestRun(t *testing.T) {
 			}
 		})
 
-		rootCommand.Run(rootCommand, []string{})
+		_ = cmd.PreRunE(cmd, []string{})
 	}
 
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&userInput), "Initialize")

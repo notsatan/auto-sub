@@ -1,67 +1,72 @@
 package commons
 
 import (
-	"strings"
+	"bytes"
+	"os"
 	"testing"
+
+	"bou.ke/monkey"
 )
 
-func TestIgnoreFile(t *testing.T) {
-	files := []string{
-		"test.exe",
-		"temp_file.bat",
-		"new_file.docx",
-		"incorrect_file.word",
-		"video.mkv",
-		"same_video.jpg",
-		"definitely_not_a_video.txt",
-	}
-
-	input := UserInput{
-		Exclusions: []string{
-			"video.mkv",
-			"same_video.jpg",
-		},
-
-		RegexExclude: `\.exe`,
-	}
-
-	errCode, err := input.Initialize()
-	if errCode != StatusOK {
+func TestGetOutput(t *testing.T) {
+	if GetOutput() != outStream {
 		t.Errorf(
-			"(commons/IgnoreFile) error occurred during initialization! "+
-				"\nerror code: %d \nerror: %v",
-			errCode,
-			err,
+			"(commons/GetOutput) outStream returned is not the one being used!",
 		)
 	}
+}
 
-	source := "source-directory"
-	for i, file := range files {
-		result := input.IgnoreFile(&source, &files[i])
+func TestSetOutput(t *testing.T) {
+	// Fixing the internal variables to isolate tests
+	outStream = nil
+	oStreamSet = false
 
-		flag := false
+	// Set stdout as out-stream
+	SetOutput(os.Stdout) // will force-stop the application if this fails
 
-		if input.RegexRule != nil && input.RegexRule.MatchString(file) {
-			flag = true
-		}
+	// If `SetOutput()` is called again, it should attempt to force-stop the application
+	detect := false
 
-		for _, fileName := range input.Exclusions {
-			if strings.EqualFold(fileName, file) {
-				flag = true
-			}
-		}
-
-		if result != flag {
+	defer monkey.Unpatch(os.Exit)
+	monkey.Patch(os.Exit, func(code int) {
+		if code != YouAreStupid {
 			t.Errorf(
-				"(commmons/IgnoreFile) failed to match the value with expected"+
-					" value \nresult obtained: %v \nexpected result: %v "+
-					"\nfile name: %s \nregex rule: %v \nexclusions: %v",
-				result,
-				flag,
-				file,
-				input.RegexExclude,
-				input.Exclusions,
+				"(commons/SetOutput) unknown exit code received \ncode "+
+					"expected: %d \ncode received: %d",
+				YouAreStupid,
+				code,
 			)
 		}
+
+		detect = true
+	})
+
+	// Attempt to modify the output stream again - should cause a failure
+	SetOutput(os.Stderr)
+	if !detect {
+		t.Errorf(
+			"(commons/SetOutput) failed to prevent out-stream from modification"+
+				"\noutput stream set: %v",
+			oStreamSet,
+		)
+	}
+}
+
+func TestPrintf(t *testing.T) {
+	// Create a buffer stream and set is as the output stream
+	stream := bytes.NewBufferString("")
+	outStream = stream
+
+	// The test message to be used
+	msg := "hello, this is a test message"
+	Printf(msg)
+
+	if stream.String() != msg {
+		t.Errorf(
+			"(commons/Printf) message being printed does not match the original"+
+				"\noriginal message: \"%s\" \nmessage received: \"%s\"",
+			msg,
+			stream.String(),
+		)
 	}
 }

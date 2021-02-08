@@ -39,7 +39,7 @@ func TestFetchLocation(t *testing.T) {
 	monkey.Patch(os.Exit, func(int) {})
 
 	// Running the method - because of patch(es), both strings should be empty
-	ffmpegPath, ffprobePath := fetchLocation()
+	ffmpegPath, ffprobePath := findBinaries()
 
 	// handlerTest fails if either one of the returned values are not empty.
 	if ffmpegPath != "" || ffprobePath != "" {
@@ -67,7 +67,7 @@ func TestFetchLocation(t *testing.T) {
 	})
 
 	// Run the method - both the variables should contain the fixed value
-	ffmpegPath, ffprobePath = fetchLocation()
+	ffmpegPath, ffprobePath = findBinaries()
 
 	// Fail test if either one of them does not match the fixed value
 	if ffmpegPath != testReturn || ffprobePath != testReturn {
@@ -96,8 +96,11 @@ func TestExecute(t *testing.T) {
 		Patch the `Execute()` method of the root command to always throw an error.
 	*/
 
+	// Generate a root command
+	cmd := getRootCommand()
+
 	monkey.PatchInstanceMethod(
-		reflect.TypeOf(rootCommand),
+		reflect.TypeOf(cmd),
 		"Execute",
 		func(command *cobra.Command) error {
 			return errors.New("temporary error")
@@ -105,7 +108,7 @@ func TestExecute(t *testing.T) {
 	)
 
 	defer monkey.UnpatchInstanceMethod(
-		reflect.TypeOf(rootCommand),
+		reflect.TypeOf(cmd),
 		"Execute",
 	)
 
@@ -123,4 +126,67 @@ func TestExecute(t *testing.T) {
 
 	// Running the method.
 	Execute()
+}
+
+func TestStringFlags(t *testing.T) {
+	// The functioning of `stringFlags()` involves adding flags and marking them as
+	// required if needed; the former doesn't need to be tested (no chance of failure)
+	// and the latter can't be tested (API limitations)
+	//
+	// This test function will simply use patches to imitate failure where needed to
+	// improve coverage score - failure can't be tested either since failure handling
+	// just involves logging the failure.
+
+	// Template command
+	cmd := &cobra.Command{}
+	input := commons.UserInput{}
+
+	val := "template path"
+
+	for _, in := range []struct {
+		ffmpegPath, ffprobePath string
+	}{
+		{val, ""},
+		{"", ""},
+		{"", val},
+		{val, val},
+	} {
+		// Reset all flags
+		cmd.ResetFlags()
+
+		// Run the function
+		stringFlags(
+			cmd,
+			&input,
+			&in.ffmpegPath,
+			&in.ffprobePath,
+		)
+	}
+
+	defer monkey.UnpatchInstanceMethod(
+		reflect.TypeOf(cmd),
+		"MarkFlagDirname",
+	)
+
+	monkey.PatchInstanceMethod(
+		reflect.TypeOf(cmd),
+		"MarkFlagDirname",
+		func(*cobra.Command, string) error { return errors.New("test error") },
+	)
+
+	defer monkey.UnpatchInstanceMethod(
+		reflect.TypeOf(cmd),
+		"MarkFlagRequired",
+	)
+
+	monkey.PatchInstanceMethod(
+		reflect.TypeOf(cmd),
+		"MarkFlagRequired",
+		func(*cobra.Command, string) error { return errors.New("testo error") },
+	)
+
+	blank := ""
+
+	cmd.ResetFlags()
+	stringFlags(cmd, &input, &blank, &blank)
 }

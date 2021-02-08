@@ -15,7 +15,7 @@ var logFile = "logs.txt"
 // of control to the central command.
 func main() {
 	// Logging will be enabled - by default with the log level at warn. If logging is
-	// explicitly enabled (using a flag) the log level will be reduced.
+	// explicitly enabled (using a flag) log level will be reduced.
 	log.SetLevel(log.WarnLevel)
 
 	// Modify the formatter, prettifies log output
@@ -24,7 +24,6 @@ func main() {
 		LogFormat:       "[%lvl%]: %time% - %msg%\n",
 	})
 
-	// #nosec G302 - GoSec not working with the `-exclude` tag for some reason.
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 	if err != nil {
 		// If the file can't be opened, setting the output channel to be stderr
