@@ -2,7 +2,11 @@ package commons
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"bou.ke/monkey"
@@ -67,6 +71,76 @@ func TestPrintf(t *testing.T) {
 				"\noriginal message: \"%s\" \nmessage received: \"%s\"",
 			msg,
 			stream.String(),
+		)
+	}
+
+	// Test to ensure a call to `Printf` is ignored in case out-stream is null
+	outStream = nil
+	defer monkey.Unpatch(fmt.Fprintf)
+	monkey.Patch(fmt.Fprintf, func(io.Writer, string, ...interface{}) (int, error) {
+		t.Errorf(
+			"(commons/Printf) running `Printf()` when `outStream` is null!",
+		)
+
+		return 0, nil
+	})
+
+	Printf("this won't be printed!")
+}
+
+//nolint // stupid check, fails because an `if` statement is multi-line
+func TestStringify(t *testing.T) {
+	testdata := ""
+	if root, err := os.Getwd(); err != nil {
+		t.Errorf(
+			"(commons/Stringify) unable to fetch working directory \nerror: %v",
+			err,
+		)
+	} else {
+		testdata = filepath.Join(filepath.Dir(filepath.Dir(root)), "testdata")
+	}
+
+	// Get a list of files present in testdata
+	files, err := ioutil.ReadDir(testdata)
+	if err != nil {
+		t.Errorf(
+			"(commons/Stringify) failed to read contents of testdata \nerror: %v",
+			err,
+		)
+	} else if len(files) < 2 {
+		t.Errorf(
+			"(commons/Stringify) testdata dir does not contain enough files!"+
+				"files found: %+v",
+			files,
+		)
+	}
+
+	// Match the output returned by the function
+	if inp := []os.FileInfo{files[0]};
+		fmt.Sprintf(`["%s"]`, files[0].Name()) != Stringify(&inp) {
+		t.Errorf(
+			"(commons/Stringify) unexpected output for single file input! "+
+				"\noutput received: `%s`\noutput expected: `%s`",
+			Stringify(&inp),
+			fmt.Sprintf(`["%s"]`, files[0].Name()),
+		)
+	}
+
+	if inp := []os.FileInfo{}; Stringify(&inp) != "[]" {
+		t.Errorf(
+			"(commons/Stringify) unexpected result for empty input! "+
+				"\nreceived: %s",
+			Stringify(&inp),
+		)
+	}
+
+	expOutput := fmt.Sprintf(`["%s", "%s"]`, files[0].Name(), files[1].Name())
+	if inp := []os.FileInfo{files[0], files[1]}; expOutput != Stringify(&inp) {
+		t.Errorf(
+			"(commons/Stringify) unexpected output for multi-file input "+
+				"\nexpected output: `%s` \nresult: `%s",
+			expOutput,
+			Stringify(&inp),
 		)
 	}
 }

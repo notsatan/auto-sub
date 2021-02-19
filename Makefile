@@ -66,8 +66,6 @@ checkstyle:
 	@go vet --vettool=./tmp/shadow
 	@echo -e "\t> Running GoImports"
 	@./tmp/goimports -e -l $(GOFILES)
-	@echo -e "\t> Running GoLint"
-	@./tmp/golint -set_exit_status ./...
 	@echo -e "\t> Running StaticCheck"
 	@./tmp/staticcheck ./...
 	@echo -e "\t> Running ErrCheck"

@@ -182,7 +182,7 @@ func getRootCommand() *cobra.Command {
 
 			// Root path has already been validated, simply pass the flow of control
 			// to the next section
-			ffmpeg.TraverseRoot(
+			_, _ = ffmpeg.TraverseRoot( // TODO: Don't ignore these values
 				&userInput,
 
 				// Defaulting output directory to `<root-dir>/auto-sub [output]`

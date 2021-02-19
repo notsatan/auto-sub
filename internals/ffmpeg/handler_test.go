@@ -1,6 +1,7 @@
 package ffmpeg
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -8,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"bou.ke/monkey"
 
 	"github.com/demon-rem/auto-sub/internals/commons"
 )
@@ -81,23 +84,35 @@ func TestCheckExt(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // will edit this test to reduce its complexity later
 func TestGroupFiles(t *testing.T) {
 	// Form path to `testdata` directory
 	testdata := ""
-
 	if cwd, err := os.Getwd(); err != nil {
 		t.Errorf(
 			"(handler/groupFiles) unable to fetch current path! \nError: \n%v",
 			err,
 		)
 	} else {
-		// Move to up the file tree (twice)
+		// Move up the file tree (twice)
 		testdata = filepath.Join(filepath.Dir(filepath.Dir(cwd)), "testdata")
 	}
 
-	// Run the method for all directories present in test data
-	var dirs []os.FileInfo
+	// Ensure the function fails with incorrect path
+	o01, o02, o03, o04 := groupFiles("invalid/path", &commons.UserInput{})
+	if o01 != nil || o02 != nil || o03 != nil || o04 != nil {
+		t.Errorf(
+			"(handler/groupFiles) expected the function to fail with invalid "+
+				"path! \nvalues: %s \n%s \n%s \n%s",
+			commons.Stringify(&o01),
+			commons.Stringify(&o02),
+			commons.Stringify(&o03),
+			commons.Stringify(&o04),
+		)
+	}
 
+	// Fetch a list of all items present in the directory
+	var dirs []os.FileInfo
 	if dir, err := ioutil.ReadDir(testdata); err != nil {
 		t.Errorf(
 			"(handler/groupFiles) unable to fetch a list of directories in the"+
@@ -118,44 +133,39 @@ func TestGroupFiles(t *testing.T) {
 
 		sourceDir := filepath.Join(testdata, dir.Name())
 
+		// Forcing to ignore `exe` files to achieve complete coverage for the function
+		input := &commons.UserInput{RegexExclude: `.*\.exe`}
+		_, _ = input.Initialize()
+
 		// Run the function to sort the files present in the directory
 		retMedia, retSubs, retAttachments, retChapters := groupFiles(
 			sourceDir,
-			&commons.UserInput{}, // keeping the test simple and isolated
+			input,
 		)
 
 		var mediaFiles, subs, attachments, chapters []os.FileInfo
 
-		// Fetch a list of items in the source directory, and sort them using `checkExt`
+		// Fetch list of items in the source directory, sort them using `checkExt`
 		items, _ := ioutil.ReadDir(sourceDir)
 		for _, file := range items {
-			switch {
-			case checkExt(file.Name(), videoExt):
+			switch fName := file.Name(); {
+			case input.IgnoreFile(&sourceDir, &fName):
+				// Ignore the file directly if required
+				continue
+			case checkExt(fName, videoExt):
 				mediaFiles = append(mediaFiles, file)
-			case checkExt(file.Name(), subsExt):
+			case checkExt(fName, subsExt):
 				subs = append(subs, file)
-			case checkExt(file.Name(), attachmentExt):
+			case checkExt(fName, attachmentExt):
 				attachments = append(attachments, file)
-			case checkExt(file.Name(), chaptersExt):
+			case checkExt(fName, chaptersExt):
 				chapters = append(chapters, file)
 			}
 		}
 
-		stringify := func(files []os.FileInfo) string {
-			result := "["
-
-			for _, file := range files {
-				result += fmt.Sprintf("`%v` ", file.Name())
-			}
-
-			result = strings.TrimSpace(result) + "]"
-
-			return result
-		}
-
 		/*
-			Create 2d slices, one to contain the values returned while testing the
-			function, the other to contain the values obtained by iterating the source
+			Creating 2d slices, one to contain the values returned while testing the
+			function, the other to contain values obtained by iterating the source
 			directories manually.
 
 			Note: Ensure that the order of the same value remains the same in both
@@ -181,16 +191,16 @@ func TestGroupFiles(t *testing.T) {
 		for i := 0; i < len(determined); i++ {
 			if len(returned[i]) != len(determined[i]) {
 				t.Errorf(
-					"(groupFiles) array lengths fail to match [iteration %d] "+
-						"\nvalues returned: %s\nvalues calculated: %s",
+					"(handler/groupFiles) array lengths fail to match "+
+						"[iteration %d]\nvalues returned: %s\nvalues calculated: %s",
 					i,
-					stringify(returned[i]),
-					stringify(determined[i]),
+					commons.Stringify(&returned[i]),
+					commons.Stringify(&determined[i]),
 				)
 			}
 		}
 
-		// Check for values in both 2d slices
+		// Check values in both 2d slices
 		for index := range determined {
 			// Pick up a file in from `returned[index]` and look for the same file
 			// in `determined[index]`
@@ -211,11 +221,122 @@ func TestGroupFiles(t *testing.T) {
 							"\ndetermined values: %s",
 						searchFile.Name(),
 						sourceDir,
-						stringify(returned[index]),
-						stringify(determined[index]),
+						commons.Stringify(&returned[index]),
+						commons.Stringify(&determined[index]),
 					)
 				}
 			}
 		}
+	}
+}
+
+func TestTraverseRoot(t *testing.T) {
+	// Fetch path to test data
+	root := ""
+	if path, err := os.Getwd(); err != nil {
+		t.Errorf(
+			"(handler/TraverseRoot) failed to fetch path to current working "+
+				"directory \nerror: %v",
+			err,
+		)
+	} else {
+		root = filepath.Join(filepath.Dir(filepath.Dir(path)), "testdata")
+	}
+
+	// Template user input
+	in := commons.UserInput{RootPath: root}
+	if errCode, err := in.Initialize(); errCode != commons.StatusOK || err != nil {
+		t.Errorf(
+			"(handler/TraverseRoot) failed to initialize template user input"+
+				"\nerror: %v \nexit code: %d",
+			err,
+			errCode,
+		)
+	}
+
+	// Test to ensure the function fails if result directory points to an existing
+	// non-directory item
+	//nolint
+	if errCode, err := TraverseRoot(&in, filepath.Join(root, ".gitkeep"));
+		errCode != commons.UnexpectedError || err == nil {
+		t.Errorf(
+			"(handler/TraverseRoot) function does not fail even if path to "+
+				"result directory points to an existing file \nerror: %v \nstatus: %d",
+			err,
+			errCode,
+		)
+	}
+
+	/*
+		Test to ensure failure occurs if unable to perform a check for existence of
+		result directory
+	*/
+	defer monkey.Unpatch(os.Stat)
+	monkey.Patch(os.Stat, func(string) (os.FileInfo, error) {
+		return nil, errors.New("fail `os.Stat()` through a patch for tests")
+	})
+
+	// Patch function call to `sourceDir` to isolate the function being tested
+	defer monkey.Unpatch(sourceDir)
+	monkey.Patch(sourceDir, func(string, string, *commons.UserInput) int {
+		return commons.StatusOK
+	})
+
+	//nolint
+	if errCode, err := TraverseRoot(&in, root);
+		err == nil || errCode != commons.UnexpectedError {
+		t.Errorf(
+			"(handler/TraverseRoot) function does not force stop even when " +
+				"`os.Stat()` check fails!",
+		)
+	}
+
+	// Test to ensure result directory is being created if it does not already exist
+	defer monkey.Unpatch(os.Stat)
+	monkey.Patch(os.Stat, func(string) (os.FileInfo, error) {
+		return nil, os.ErrNotExist
+	})
+
+	// Result directory fails to be created
+	defer monkey.Unpatch(os.Mkdir)
+	monkey.Patch(os.Mkdir, func(string, os.FileMode) error {
+		return errors.New("failing `os.Mkdir()` through a patch for tests")
+	})
+
+	//nolint
+	if errCode, err := TraverseRoot(&in, root);
+		err == nil || errCode != commons.UnexpectedError {
+		t.Errorf(
+			"(handler/TraverseRoot) function does not fail even when result " +
+				"directory cannot be created",
+		)
+	}
+
+	flag := false
+	createPath := filepath.Join(root, "create dir")
+
+	// Patch `os.Mkdir` to succeed (without actually creating a directory)
+	defer monkey.Unpatch(os.Mkdir)
+	monkey.Patch(os.Mkdir, func(path string, mode os.FileMode) error {
+		if path != createPath {
+			t.Errorf(
+				"(hander/TraverseRoot) function attempting to create a "+
+					"directory that is not the result directory "+
+					"\nexpected dir: \"%s\" \ncreating: \"%s\"",
+				createPath,
+				path,
+			)
+		}
+
+		flag = true
+		monkey.Unpatch(os.Mkdir) // Removes the patch, the patch works once
+		return nil
+	})
+
+	if _, _ = TraverseRoot(&in, createPath); !flag {
+		t.Errorf(
+			"(handler/TraverseRoot) function did not attempt to create result " +
+				"directory if it does not exist",
+		)
 	}
 }

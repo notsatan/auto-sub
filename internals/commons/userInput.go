@@ -15,30 +15,6 @@ import (
 )
 
 /*
-Possible exit codes
-*/
-const (
-	// Path supplied for root directory is incorrect - points to a non-existent location
-	// or to a file.
-	RootDirectoryIncorrect = 11
-
-	// Ran into an error while attempting to compile regex pattern
-	RegexError = 12
-
-	// Exit code for an unexpected internal error.
-	UnexpectedError = 13
-
-	// Executables not found - typically used in case FFmpeg or FFprobe can't be located
-	ExecNotFound = 14
-
-	// Exit code for a successful termination.
-	StatusOK = 0
-
-	// Error code for extremely dumb errors - ones that shouldn't even exist :(
-	YouAreStupid = 999
-)
-
-/*
 UserInput is a simple structure to store and operate upon data passed by the user using
 CLI.
 

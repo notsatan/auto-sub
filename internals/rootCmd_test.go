@@ -270,7 +270,7 @@ func TestInitializeFailure(t *testing.T) {
 	defer monkey.Unpatch(ffmpeg.TraverseRoot)
 	monkey.Patch(
 		ffmpeg.TraverseRoot,
-		func(*commons.UserInput, string) {},
+		func(*commons.UserInput, string) (int, error) { return commons.StatusOK, nil },
 	)
 
 	monkey.PatchInstanceMethod(
@@ -312,7 +312,7 @@ func TestRun(t *testing.T) {
 	defer monkey.Unpatch(ffmpeg.TraverseRoot)
 	monkey.Patch(
 		ffmpeg.TraverseRoot,
-		func(*commons.UserInput, string) {},
+		func(*commons.UserInput, string) (int, error) { return commons.StatusOK, nil },
 	)
 
 	/*
