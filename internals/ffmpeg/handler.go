@@ -32,7 +32,8 @@ Files ending with one of these known extensions will be treated as such (for exa
 a file have an extension from `videoExt` will be considered as the main video file).
 
 Note: While the elements in these array(s) are file extensions, they do not contain
-period - will be added during runtime while comparing.
+period - will be added during runtime while comparing. Also, ensure all the extensions
+are in LOWER case; ensures comparisons be case insensitive.
 */
 var (
 	videoExt = []string{
@@ -316,8 +317,9 @@ func checkExt(fileName string, extensions []string) bool {
 		// and add one. Converts `mp4` -> `.mp4`; while `.mp4` remains unaffected
 		ext = "." + strings.TrimLeft(ext, ".")
 
-		// Check if the file name ends with this extension
-		if strings.HasSuffix(fileName, ext) {
+		// Check if the file name ends with this extension - extensions are lowercase,
+		// convert the file name to lower case to ensure case insensitive comparisons.
+		if strings.HasSuffix(strings.ToLower(fileName), ext) {
 			return true
 		}
 	}
@@ -355,6 +357,11 @@ func groupFiles(sourceDir string, userInput *commons.UserInput) (
 	// ignored using the ignore rules, if not, group the file if its extension matches
 	// a recognized extension
 	for _, file := range files {
+		if file.IsDir() {
+			// Ignore directories - jump to the next item.
+			continue
+		}
+
 		if fName := file.Name(); userInput.IgnoreFile(&sourceDir, &fName) {
 			// Check if file name is to be skipped - jump to next iteration if current
 			// file is to be skipped; the function call will log internally if a file
@@ -562,7 +569,7 @@ func generateCmd(
 	)
 
 	log.Debugf(
-		"Source Directory: %s \nMediaFile: %s \nSubtitles: %s \nChapters: %s"+
+		"Source Directory: %s \nMediaFile: \"%s\" \nSubtitles: %s \nChapters: %s"+
 			"\nAttachments: %s\n\n",
 		sourceDir,
 		mediaFile.Name(),

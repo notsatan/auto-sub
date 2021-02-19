@@ -256,9 +256,8 @@ func TestTraverseRoot(t *testing.T) {
 
 	// Test to ensure the function fails if result directory points to an existing
 	// non-directory item
-	//nolint
-	if errCode, err := TraverseRoot(&in, filepath.Join(root, ".gitkeep"));
-		errCode != commons.UnexpectedError || err == nil {
+	if errCode, err := TraverseRoot(&in, filepath.Join(root, ".gitkeep")); errCode !=
+		commons.UnexpectedError || err == nil {
 		t.Errorf(
 			"(handler/TraverseRoot) function does not fail even if path to "+
 				"result directory points to an existing file \nerror: %v \nstatus: %d",
@@ -282,9 +281,8 @@ func TestTraverseRoot(t *testing.T) {
 		return commons.StatusOK
 	})
 
-	//nolint
-	if errCode, err := TraverseRoot(&in, root);
-		err == nil || errCode != commons.UnexpectedError {
+	if errCode, err := TraverseRoot(&in, root); err == nil ||
+		errCode != commons.UnexpectedError {
 		t.Errorf(
 			"(handler/TraverseRoot) function does not force stop even when " +
 				"`os.Stat()` check fails!",
@@ -303,9 +301,8 @@ func TestTraverseRoot(t *testing.T) {
 		return errors.New("failing `os.Mkdir()` through a patch for tests")
 	})
 
-	//nolint
-	if errCode, err := TraverseRoot(&in, root);
-		err == nil || errCode != commons.UnexpectedError {
+	if errCode, err := TraverseRoot(&in, root); err == nil ||
+		errCode != commons.UnexpectedError {
 		t.Errorf(
 			"(handler/TraverseRoot) function does not fail even when result " +
 				"directory cannot be created",

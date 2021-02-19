@@ -88,7 +88,6 @@ func TestPrintf(t *testing.T) {
 	Printf("this won't be printed!")
 }
 
-//nolint // stupid check, fails because an `if` statement is multi-line
 func TestStringify(t *testing.T) {
 	testdata := ""
 	if root, err := os.Getwd(); err != nil {
@@ -116,8 +115,10 @@ func TestStringify(t *testing.T) {
 	}
 
 	// Match the output returned by the function
-	if inp := []os.FileInfo{files[0]};
-		fmt.Sprintf(`["%s"]`, files[0].Name()) != Stringify(&inp) {
+	if inp := []os.FileInfo{files[0]}; fmt.Sprintf(
+		`["%s"]`,
+		files[0].Name(),
+	) != Stringify(&inp) {
 		t.Errorf(
 			"(commons/Stringify) unexpected output for single file input! "+
 				"\noutput received: `%s`\noutput expected: `%s`",
