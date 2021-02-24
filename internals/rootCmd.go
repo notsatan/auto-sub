@@ -178,8 +178,6 @@ func getRootCommand() *cobra.Command {
 				}
 			}
 
-			// TODO: The root directory is to be treated as the source directory
-
 			// Root path has already been validated, simply pass the flow of control
 			// to the next section
 			_, _ = ffmpeg.TraverseRoot( // TODO: Don't ignore these values

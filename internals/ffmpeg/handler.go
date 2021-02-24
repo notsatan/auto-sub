@@ -15,64 +15,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/demon-rem/auto-sub/internals/commons"
 	log "github.com/sirupsen/logrus"
-	escapes "github.com/snugfox/ansi-escapes"
-)
-
-/*
-Set of arrays containing extensions for various recognized file-types.
-
-Files ending with one of these known extensions will be treated as such (for example,
-a file have an extension from `videoExt` will be considered as the main video file).
-
-Note: While the elements in these array(s) are file extensions, they do not contain
-period - will be added during runtime while comparing. Also, ensure all the extensions
-are in LOWER case; ensures comparisons be case insensitive.
-*/
-var (
-	videoExt = []string{
-		"mkv",
-		"mp4",
-		"webm",
-		"m2ts",
-	}
-
-	subsExt = []string{
-		"srt",
-		"ass",
-		"sup",
-		"pgs",
-		"vtt",
-	}
-
-	attachmentExt = []string{
-		"ttf",
-		"otf",
-	}
-
-	// Ideally should be present with `attachments` - creating a separate array since
-	// the mime type for chapters/tags (or any XML file) will be different.
-	chaptersExt = []string{
-		"xml",
-	}
-)
-
-/*
-Compiled regex patterns to extract progress from FFmpeg command
-
-Important: Ensure that the only the second regex group contains value to be extracted,
-and the group should contain ONLY digits (not even floats)
-*/
-var (
-	regexFrames = regexp.MustCompile(`(\s+|^)frame=\s*(\d+)`)
-	regexFps    = regexp.MustCompile(`(\s+|^)fps=\s*(\d+)`)
-	regexSize   = regexp.MustCompile(`(\s+|^)L?size=\s*(\d+)`)
 )
 
 /*
@@ -94,13 +41,13 @@ func TraverseRoot(
 	item, err := os.Stat(resDir)
 	if os.IsNotExist(err) {
 		log.Debugf(
-			"(handler/TraverseRoot) creating result dir in: `%v`",
+			"(ffmpeg/TraverseRoot) creating result dir in: `%v`",
 			input.RootPath,
 		)
 
 		if err = os.Mkdir(resDir, os.ModeDir); err != nil {
 			log.Warnf(
-				"(handler/TraverseRoot) failed to create directory: \"%v\""+
+				"(ffmpeg/TraverseRoot) failed to create directory: \"%v\""+
 					"\nerror traceback: `%v`\n",
 				resDir,
 				err,
@@ -112,7 +59,7 @@ func TraverseRoot(
 	} else if err != nil || !item.IsDir() {
 		// Error if the check failed, or root path points to non-directory item
 		log.Debugf(
-			"(handler/TraverseRoot) failed while checking for result directory "+
+			"(ffmpeg/TraverseRoot) failed while checking for result directory "+
 				"\nerror: %v \nitem type: %+v",
 			err,
 			item,
@@ -126,7 +73,7 @@ func TraverseRoot(
 	files, err := ioutil.ReadDir(input.RootPath)
 	if err != nil {
 		log.Debugf(
-			"(handler/TraverseRoot) failed to fetch items present in root "+
+			"(ffmpeg/TraverseRoot) failed to fetch items present in root "+
 				"directory! \nerror: `%v`",
 			err,
 		)
@@ -142,7 +89,7 @@ func TraverseRoot(
 			input,
 		)
 
-		commons.Printf("\n\nCompleted. Result directory: \"%s\"", resDir)
+		// TODO: Print a completion message here
 		return // Direct return to the calling method
 	}
 
@@ -159,6 +106,11 @@ func TraverseRoot(
 
 		dirsFound++ // increment for each directory found
 		sourcePath := filepath.Join(input.RootPath, f.Name())
+
+		if sourcePath == resDir {
+			// Don't use the directory containing results as a source directory
+			continue
+		}
 
 		// The method call will handle the rest of the part for the source directory
 		sourceDir(sourcePath, resDir, input)
@@ -196,7 +148,7 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 	*/
 	switch {
 	case len(mediaFiles) == 0:
-		log.Debugf("(handler/sourceDir) no media file in path: `%v`", path)
+		log.Debugf("(ffmpeg/sourceDir) no media file in path: `%v`", path)
 		commons.Printf(
 			"Error: failed to locate any media file \n\tPath: `%s`",
 			path,
@@ -205,22 +157,24 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 		return commons.SourceDirectoryError
 	case len(mediaFiles) > 1:
 		log.Debugf(
-			"(handler/sourceDir) mutiple media files found in source directory"+
+			"(ffmpeg/sourceDir) mutiple media files found in source directory"+
 				"\ndirectory: `%v` \nfiles: %v",
 			path,
 			commons.Stringify(&mediaFiles),
 		)
 
 		commons.Printf(
-			"Error: multiple media files in source directory! \n\tPath: `%s`",
+			"Error: multiple media files in source directory\n\t"+`Path: "%s"`+
+				"\n\nFiles found: \n%s",
 			path,
+			commons.Stringify(&mediaFiles),
 		)
 
 		return commons.SourceDirectoryError
 	case len(subtitles) == 0 && len(attachments) == 0 && len(chapters) == 0:
 		// There should be at least one subtitle/chapter/attachment file
 		log.Debugf(
-			"(handler/sourceDir) failed to locate additional files.\npath: `%v`",
+			"(ffmpeg/sourceDir) failed to locate additional files.\npath: `%v`",
 			path,
 		)
 
@@ -263,38 +217,45 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 	// Redirecting output from `stderr` to both buffers at once.
 	cmd.Stderr = io.MultiWriter(&progBuf, &logBuf)
 
-	// Channel to send signal to the background thread performing updates. The thread
-	// will kill itself when a signal from this channel is released
+	// Channel to send signal to the background thread performing updates. The channel
+	// ensures that flow-of-control is retained by this function as long as updates
+	// are being performed in the background.
 	signal := make(chan bool)
 
-	// Deferred function call to ensure the coroutine stops when this function ends
+	// Deferred function call to ensure the coroutine stops before this function ends
 	defer func(sig *chan bool) {
-		/*
-			Releasing the signal to stop the background process closes gracefully, will
-			be fired when the parent function is about to exit.
-
-			Required to perform final updates (i.e. make sure that being updated to the
-			terminal reaches 100% instead of ending before that)
-
-			Also ensures that once the flow-of-control returns from this method, the
-			background coroutine will also be stopped (instead of having a coroutine
-			run infinitely for every call to `sourceDir`)
-		*/
-
+		// Sending a signal informs the goroutine that it should close itself.
 		*sig <- true
+
+		// Receive a value from the signal - acts as an indicator from the goroutine
+		// that it is now ready to be closed.
+		<-*sig
+
+		// Finally, close the channel
 		close(*sig)
 	}(&signal)
 
+	updateThread := Updates{
+		userInput:   input,
+		filePath:    filepath.Join(path, mediaFiles[0].Name()),
+		fileName:    mediaFiles[0].Name(),
+		sourceDir:   path,
+		resDir:      resDir,
+		totalFrames: 0,
+	}
+
+	updateThread.Initialize()
+
 	// Firing a goroutine; this function will track (and update) progress of the running
 	// command
-	go trackProgress(&progBuf, signal)
+	go updateThread.DisplayUpdates(&progBuf, signal)
 
 	// Running the command. This statement will block the main thread until the
 	// ffmpeg process completes in the background. Will be the slowest step in the
 	// function
 	if err := cmd.Run(); err != nil {
 		log.Debugf(
-			"(handler/SourceDir) ffmpeg command failed while running in "+
+			"(ffmpeg/sourceDir) ffmpeg command failed while running in "+
 				"background \nerror: %v \n\nlog buffer: %s",
 			err,
 			logBuf.String(),
@@ -303,6 +264,44 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 
 	return commons.StatusOK
 }
+
+/*
+Set of arrays containing extensions for various recognized file-types.
+
+Files ending with one of these known extensions will be treated as such (for example,
+a file have an extension from `videoExt` will be considered as the main video file).
+
+Note: While the elements in these array(s) are file extensions, they do not contain
+period - will be added during runtime while comparing. Also, ensure all the extensions
+are in LOWER case; ensures comparisons be case insensitive.
+*/
+var (
+	videoExt = []string{
+		"mkv",
+		"mp4",
+		"webm",
+		"m2ts",
+	}
+
+	subsExt = []string{
+		"srt",
+		"ass",
+		"sup",
+		"pgs",
+		"vtt",
+	}
+
+	attachmentExt = []string{
+		"ttf",
+		"otf",
+	}
+
+	// Ideally should be present with `attachments` - creating a separate array since
+	// the mime type for chapters/tags (or any XML file) will be different.
+	chaptersExt = []string{
+		"xml",
+	}
+)
 
 /*
 CheckExt is a helper function designed to check if a file contains a extension from a
@@ -343,7 +342,7 @@ func groupFiles(sourceDir string, userInput *commons.UserInput) (
 	files, err := ioutil.ReadDir(sourceDir)
 	if err != nil {
 		log.Debugf(
-			"(handler/groupFiles) unable to read source directory: \"%s\""+
+			"(ffmpeg/groupFiles) unable to read source directory: \"%s\""+
 				"\nerror: %v",
 			sourceDir,
 			err,
@@ -389,7 +388,7 @@ func groupFiles(sourceDir string, userInput *commons.UserInput) (
 
 		default:
 			log.Debugf(
-				"(handler/groupFiles) failed to group file: \"%s\"",
+				"(ffmpeg/groupFiles) failed to group file: \"%s\"",
 				filepath.Join(sourceDir, file.Name()),
 			)
 		}
@@ -409,8 +408,8 @@ func generateCmd(
 	outDir string,
 
 	mediaFile os.FileInfo,
-	subsFound []os.FileInfo,
-	attachmentFound []os.FileInfo,
+	subsFound,
+	attachmentFound,
 	chaptersFound []os.FileInfo,
 ) (cmd *exec.Cmd) {
 	// String array containing the command, each argument must be an individual element
@@ -585,143 +584,4 @@ func generateCmd(
 
 	// Return the final command formed
 	return cmd
-}
-
-/*
-Progress is an internal function to track and update the progress of a running FFmpeg
-command to the terminal
-
-The function will internally use regex to extract information from the input and perform
-updates on the terminal.
-
-The string builder will be reset when the function ends.
-
-Note: This function is blocking by nature, and is intended to be run as a coroutine.
-*/
-func trackProgress(buf *strings.Builder, interrupt <-chan bool) {
-	/*
-		Clear the buffer when the function exits - ensures that the next run will
-		contain	fresh values.
-
-		Without this, the function will fetch the first values that match the regex
-		pattern (which will be the oldest), and keep using them in every iteration.
-	*/
-
-	// Variable to keep a track of blank runs (i.e. runs where no update was received
-	// in the buffer)
-	blanks := 0
-
-	const (
-		/*
-			Maximum blank runs allowed, the function will self-terminate if this count
-			is exceeded. Each call is made at an interval of one second, i.e. if maximum
-			blank calls allowed are 3, the function will self-terminate if the buffer
-			remains empty for 3 seconds.
-		*/
-		maxBlanks = 3
-
-		/*
-			Max length allowed for the template animation - the progress will be reset
-			when this count is exceeded; making an infinite progress bar
-		*/
-		templateAnimLen = 3
-	)
-
-	// String to contain the progress, updated with every iteration of inner loop
-	progress := ""
-
-	def := -1
-
-	// Infinite loop iterating at a frequency of one iteration every second.
-	// Will be terminated internally once the interrupt signal is fired.
-	ticker := time.NewTicker(1 * time.Second)
-	for range ticker.C {
-		// Tracks number of lines being printed in each iteration - used to move the
-		// cursor *up* by that many lines after every iteration.
-		lineCount := 0
-
-		// Ensure this check is done first
-		if blanks > maxBlanks {
-			// Terminate the function
-			log.Debugf(
-				"(handler/trackProgress) self-terminating due to %d blank calls",
-				blanks,
-			)
-
-			return
-		}
-
-		if buf == nil {
-			// If the buffer is empty, register current call as a blank
-			blanks++
-			continue // important
-		}
-
-		var frames, fps, size int
-		bufString := buf.String()
-
-		if res := regexFrames.FindSubmatch([]byte(bufString)); len(res) > 1 {
-			frames = convertor(string(res[2]), def)
-		}
-
-		if res := regexFps.FindSubmatch([]byte(bufString)); len(res) > 1 {
-			fps = convertor(string(res[2]), def)
-		}
-
-		if res := regexSize.FindSubmatch([]byte(bufString)); len(res) > 1 {
-			size = convertor(string(res[2]), def)
-		}
-
-		if frames == def && fps == def && size == def {
-			// If all three are empty, produce a simple animation
-			progress += "." // each iteration will simply add a new dot
-
-			if len(progress) > templateAnimLen {
-				// Clear previous progress - part of the template animation
-				progress = ""
-			}
-
-			lineCount = 1 // a single line progress bar will be printed
-		} else {
-			commons.Printf(
-				"Frames: %d\nFPS: %d\nSize: %d\n\n",
-				frames,
-				fps,
-				size,
-			)
-
-			lineCount = 4
-		}
-
-		// Clear the buffer - without this step, the buffer will contain
-		buf.Reset()
-
-		// Move the cursor up for next iteration, `-lineCount` translates to "move the
-		// cursor `lineCount` lines up from its current position"
-		commons.Printf(escapes.CursorMove(0, -lineCount))
-
-		select {
-		case <-interrupt:
-			// Break flow-of-control once the signal is received.
-			return
-		default:
-			// ignore
-		}
-	}
-}
-
-/*
-Convertor is a utility function to convert byte slices into integers
-
-The function simplifies the process for conversion through abstraction. If the byte
-slice can be converted into an integer, the result will be returned, in case the
-conversion fails midway, the default value will be returned.
-*/
-func convertor(in string, def int) int {
-	res, err := strconv.Atoi(in)
-	if err != nil {
-		return def
-	}
-
-	return res
 }

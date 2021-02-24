@@ -6,9 +6,12 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"bou.ke/monkey"
 
@@ -334,6 +337,72 @@ func TestTraverseRoot(t *testing.T) {
 		t.Errorf(
 			"(handler/TraverseRoot) function did not attempt to create result " +
 				"directory if it does not exist",
+		)
+	}
+}
+
+func TestGenerateCmd(t *testing.T) {
+	defer monkey.UnpatchAll()
+
+	// Fetching directories present in testdata
+	testdata, err := os.Getwd()
+	if err != nil {
+		t.Errorf(
+			"(handler/generateCmd) unable to fetch working directory! error: %v",
+			err,
+		)
+	}
+
+	// Have the string point to testdata instead of current working directory
+	testdata = filepath.Join(filepath.Dir(filepath.Dir(testdata)), "testdata")
+
+	dir, err := ioutil.ReadDir(testdata)
+	if err != nil {
+		t.Errorf(
+			"(handler/generateCmd) unable to get list of items in testdata! "+
+				"\nerror: %v",
+			err,
+		)
+	}
+
+	cmd := exec.Cmd{}
+	monkey.PatchInstanceMethod(
+		reflect.TypeOf(&cmd),
+		"Run",
+		func(*exec.Cmd) error {
+			return nil
+		},
+	)
+
+	update := Updates{}
+	monkey.PatchInstanceMethod(
+		reflect.TypeOf(&update),
+		"DisplayUpdates",
+		func(_ *Updates, _ *strings.Builder, sig chan bool) {
+			ticker := time.NewTicker(time.Second)
+			for range ticker.C {
+				select {
+				case <-sig:
+					sig <- true
+					return
+				default:
+					// ignore
+				}
+			}
+		},
+	)
+
+	for _, item := range dir {
+		if !item.IsDir() {
+			// Skip non-directory items
+			continue
+		}
+
+		// For every directory, run the sourceDir method
+		sourceDir(
+			filepath.Join(testdata, item.Name()),
+			testdata,
+			&commons.UserInput{},
 		)
 	}
 }

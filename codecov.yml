@@ -13,7 +13,7 @@ coverage:
     patch:
       default:
         threshold: 10%
-        target: 10% # Change this value once the project after the initial release
+        target: 10% # Change this value after the initial release
 parsers:
   gcov:
     branch_detection:
