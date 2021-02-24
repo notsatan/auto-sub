@@ -2,9 +2,7 @@ package internals
 
 import (
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -64,7 +62,7 @@ func TestArgsCheck(t *testing.T) {
 		more arguments being passed to the command.
 	*/
 
-	cmd := getRootCommand()
+	cmd := *cmd
 
 	defer monkey.Unpatch(os.Exit)
 	monkey.Patch(os.Exit, func(int) {})
@@ -130,7 +128,7 @@ func TestArgsCheck(t *testing.T) {
 
 		// Running the function to be test - should fail every time
 		res := cmd.Args(
-			cmd,
+			&cmd,
 			in,
 		)
 
@@ -149,109 +147,6 @@ func TestArgsCheck(t *testing.T) {
 }
 
 /*
-TestHandlerTest checks the handler function that will be run in case the test flag is
-used
-
-Testing involves three cases, when either `ffmpeg` or `ffprobe` commands can't be run,
-or when both of them can't be run. Checking the output in each of these cases to ensure
-that the test handler function runs as expected.
-
-It is expected that the test handler function will return a blank string instead of the
-version if fails to fetch the version for any case.
-*/
-func TestHandlerTest(t *testing.T) {
-	/*
-		Testing the scenario when attempting to run the commands to fetch versions
-		results in a failure - expect to get a blank corresponding string as a result
-		for the particular entry.
-	*/
-
-	// Temporary command - used to monkey patch instance methods.
-	tempCmd := &exec.Cmd{}
-
-	// String containing the version being used for testing - will be used to apply
-	// patches and then verify if the method can correctly find the version
-	version = "4.31.12"
-
-	// Patch applied in the loop
-	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(tempCmd), "Output")
-
-	// Iterating through the possibility. Failure to run the command for `ffmpeg`, or
-	// `ffprobe` or for both (blank string)
-	for _, seq := range []string{
-		userInput.FFmpegPath,
-		userInput.FFprobePath,
-		version, // Value returned only in this case.
-		"",
-	} {
-		// Pin - take a look at https://github.com/kyoh86/scopelint/ for this.
-		// Will probably remove this in future. Using this just to pass tests for now.
-		seq := seq
-
-		// Applying instance patch such that if `seq` contains an empty string, the
-		// method will directly throw an error. Apart from this, if `seq` matches the
-		// command path, the method will throw an error.
-		//
-		// This ensures testing each scenario separately - if either one of the two
-		// commands can't be run, or if both fail.
-		monkey.PatchInstanceMethod(
-			reflect.TypeOf(tempCmd),
-			"Output", // Patching the `Output` method to return error.
-			func(cmd *exec.Cmd) ([]byte, error) {
-				if seq == "" {
-					return nil, errors.New("test error")
-				} else if cmd.Path == seq {
-					return nil, errors.New("test error")
-				}
-
-				// Note: The string being returned as result should be such that
-				// it matches the regex being used by the function.
-				return []byte("test here version " + version + " extra text"), nil
-			},
-		)
-
-		// Once the patch is applied, running the method and checking the result
-		ffmpegVersion, ffprobeVersion := handlerTest()
-
-		msg := ""
-
-		if (seq == "" || seq == userInput.FFmpegPath) && ffmpegVersion != "" {
-			// FFmpeg version should be blank.
-			msg += fmt.Sprintf(
-				"\nmanaged to fetch ffmpeg version instead of error"+
-					"\nffmpeg version: %v",
-				ffmpegVersion,
-			)
-		} else if ffmpegVersion != version {
-			// Incorrect version detected - possibly due to incorrect regex
-			msg += fmt.Sprintf(
-				"incorrect ffmpeg version detected! \nexpected version: %v "+
-					"\nversion fetched: %v",
-				version,
-				ffmpegVersion,
-			)
-		}
-
-		if (seq == "" || seq == userInput.FFprobePath) && ffprobeVersion != "" {
-			// FFprobe version should be blank
-			msg += fmt.Sprintf(
-				"managed to fetch ffprobe version instead of error "+
-					"\nffprobe version: %v",
-				ffmpegVersion,
-			)
-		} else if ffprobeVersion != version {
-			// Incorrect version detected - possibly due to incorrect regex.
-			msg += fmt.Sprintf(
-				"incorrect ffprobe version detected \nexpected version: %v "+
-					"\ndetected version: %v",
-				version,
-				ffprobeVersion,
-			)
-		}
-	}
-}
-
-/*
 TestInitializeFailure runs a test against a singular point of failure - ensuring that
 the application quits with the correct exit code in case `userInput.Initialize()` fails,
 this will happen in case of incorrect input data.
@@ -265,7 +160,7 @@ func TestInitializeFailure(t *testing.T) {
 	userInput = testConfig(t)
 	defer resetConfig()
 
-	cmd := getRootCommand()
+	cmd := *cmd
 
 	defer monkey.Unpatch(ffmpeg.TraverseRoot)
 	monkey.Patch(
@@ -299,7 +194,7 @@ func TestInitializeFailure(t *testing.T) {
 	})
 
 	// Will trip the failure point when `Initialize` method is run
-	_ = cmd.PreRunE(cmd, []string{})
+	_ = cmd.PreRunE(&cmd, []string{})
 }
 
 func TestRun(t *testing.T) {
@@ -307,7 +202,7 @@ func TestRun(t *testing.T) {
 	userInput = testConfig(t)
 	defer resetConfig()
 
-	cmd := getRootCommand()
+	cmd := *cmd
 
 	defer monkey.Unpatch(ffmpeg.TraverseRoot)
 	monkey.Patch(
@@ -326,6 +221,9 @@ func TestRun(t *testing.T) {
 
 	// Enable the test flag
 	userInput.IsTest = true
+
+	// Enable logging too, because why not
+	userInput.Logging = true
 
 	// Create temporary structure to contain two strings, an array of such structures
 	// will be used as the values returned by `handlerTest()`, with a new patch being
@@ -365,7 +263,7 @@ func TestRun(t *testing.T) {
 		})
 
 		// Finally, run the main method
-		if err := cmd.RunE(cmd, []string{}); err != nil {
+		if err := cmd.RunE(&cmd, []string{}); err != nil {
 			t.Errorf(
 				"(rootCmd/RunE) fail to run the main method! \nerror: %v",
 				err,
@@ -373,7 +271,7 @@ func TestRun(t *testing.T) {
 		}
 	}
 
-	// Undo the patches applied, and disable the test flag
+	// Undo the patches applied, disable the test flag
 	monkey.Unpatch(handlerTest)
 	monkey.Unpatch(os.Exit)
 	userInput.IsTest = false
@@ -415,7 +313,7 @@ func TestRun(t *testing.T) {
 			}
 		})
 
-		_ = cmd.PreRunE(cmd, []string{})
+		_ = cmd.PreRunE(&cmd, []string{})
 	}
 
 	monkey.UnpatchInstanceMethod(reflect.TypeOf(&userInput), "Initialize")

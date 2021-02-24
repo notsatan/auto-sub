@@ -175,7 +175,7 @@ func (userInput *UserInput) IgnoreFile(sourceDir, fileName *string) bool {
 }
 
 /*
-log simply logs the values values present in the structure. Acts as a convenience
+Log simply logs the values values present in the structure. Acts as a convenience
 method, a simple call to this method ensures that all values in the structure will be
 logged as required.
 */

@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - '**'
+      - '!rt-**'    # ignore rapid-testing branches
+      - '!docs-**'  # ignore docs branch(es)
 
 jobs:
   setup:
