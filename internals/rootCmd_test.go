@@ -14,6 +14,10 @@ import (
 	"bou.ke/monkey"
 )
 
+// Maximum input arguments expected by the command - modify this value in the future as
+// required.
+var maxInputArgs = 1
+
 /*
 Helper method designed to create a test config for user input that points the root
 directory to `testdata` directory - ideal to run tests.
@@ -63,9 +67,6 @@ func TestArgsCheck(t *testing.T) {
 	*/
 
 	cmd := *cmd
-
-	defer monkey.Unpatch(os.Exit)
-	monkey.Patch(os.Exit, func(int) {})
 
 	// Array of temporary UserInput strings.
 	testArgs := [...]string{"test", "array", "with", "random", "values", "inside", "it"}
@@ -126,14 +127,8 @@ func TestArgsCheck(t *testing.T) {
 			addArgs[0:i]...,
 		)
 
-		// Running the function to be test - should fail every time
-		res := cmd.Args(
-			&cmd,
-			in,
-		)
-
 		// Test fails if no error occurs
-		if res == nil {
+		if res := cmd.Args(&cmd, in); res == nil {
 			t.Errorf(
 				"(rootCmd/Args) function accepts more arguments than required\n"+
 					`args passed: ["%v"]`,
@@ -152,6 +147,8 @@ the application quits with the correct exit code in case `userInput.Initialize()
 this will happen in case of incorrect input data.
 */
 func TestInitializeFailure(t *testing.T) {
+	defer monkey.UnpatchAll()
+
 	/*
 		Ensure the application is force-stopped if `userInput.Initialize()` fails.
 		Mimic this with a patch.
@@ -160,51 +157,48 @@ func TestInitializeFailure(t *testing.T) {
 	userInput = testConfig(t)
 	defer resetConfig()
 
+	// Copy of the root command.
 	cmd := *cmd
 
-	defer monkey.Unpatch(ffmpeg.TraverseRoot)
-	monkey.Patch(
-		ffmpeg.TraverseRoot,
-		func(*commons.UserInput, string) (int, error) { return commons.StatusOK, nil },
-	)
+	for _, exitCode := range []int{
+		commons.UnexpectedError,
+		commons.RegexError,
+		commons.RootDirectoryIncorrect,
+		commons.SourceDirectoryError,
+	} {
+		monkey.PatchInstanceMethod(
+			reflect.TypeOf(&userInput),
+			"Initialize",
+			func(input *commons.UserInput) (int, error) {
+				return exitCode, errors.New("temp error")
+			},
+		)
 
-	monkey.PatchInstanceMethod(
-		reflect.TypeOf(&userInput),
-		"Initialize",
-		func(input *commons.UserInput) (int, error) {
-			return commons.UnexpectedError, errors.New("temp error")
-		},
-	)
+		monkey.Patch(os.Exit, func(code int) {
+			if code != exitCode {
+				t.Errorf(
+					"(rootCmd/RootCommand) unexpected exit code \nexpected: %v "+
+						"\nfound: %v",
+					exitCode,
+					code,
+				)
+			}
+		})
 
-	defer monkey.UnpatchInstanceMethod(
-		reflect.TypeOf(&userInput),
-		"Initialize",
-	)
-
-	defer monkey.Unpatch(os.Exit)
-	monkey.Patch(os.Exit, func(code int) {
-		if code != commons.UnexpectedError {
-			t.Errorf(
-				"(rootCmd/RootCommand) unexpected exit code \nexpected: %v "+
-					"\nfound: %v",
-				commons.UnexpectedError,
-				code,
-			)
-		}
-	})
-
-	// Will trip the failure point when `Initialize` method is run
-	_ = cmd.PreRunE(&cmd, []string{})
+		// Will trip the failure point when `Initialize` method is run
+		_ = cmd.PreRunE(&cmd, []string{})
+	}
 }
 
 func TestRun(t *testing.T) {
+	defer monkey.UnpatchAll()
+
 	// Generate test config
 	userInput = testConfig(t)
 	defer resetConfig()
 
 	cmd := *cmd
 
-	defer monkey.Unpatch(ffmpeg.TraverseRoot)
 	monkey.Patch(
 		ffmpeg.TraverseRoot,
 		func(*commons.UserInput, string) (int, error) { return commons.StatusOK, nil },
@@ -276,7 +270,6 @@ func TestRun(t *testing.T) {
 	monkey.Unpatch(os.Exit)
 	userInput.IsTest = false
 
-	// nolint
 	// Temporary patch - ensure application does not force-stop due to failure in
 	// `userInput.Initialize()`
 	monkey.PatchInstanceMethod(
@@ -286,36 +279,39 @@ func TestRun(t *testing.T) {
 			return commons.StatusOK, nil
 		},
 	)
+}
 
-	// Reset user input
+func TestTraverseRoot(t *testing.T) {
+	defer monkey.UnpatchAll()
+
 	userInput = testConfig(t)
 	defer resetConfig()
 
-	for _, path := range []string{
-		userInput.RootPath, // correct path
-		"",                 // Blank
-		filepath.Join(userInput.RootPath, ".gitkeep"),       // file
-		filepath.Join(userInput.RootPath, "incorrect_path"), // incorrect path
+	tempError := errors.New("(rootCmd/RunE) error thrown as a test")
+	for err, exitCode := range map[error]int{
+		nil:       commons.StatusOK,
+		tempError: commons.StatusOK,
+		nil:       commons.RootDirectoryIncorrect,
 	} {
-		// Using `path` as root path
-		userInput.RootPath = path
+		monkey.Patch(ffmpeg.TraverseRoot, func(*commons.UserInput, string) (int,
+			error) {
+			return exitCode, err
+		})
 
 		monkey.Patch(os.Exit, func(code int) {
-			if (path == "" && code != commons.RootDirectoryIncorrect) ||
-				(path != "" && code != commons.UnexpectedError) {
+			// The application cannot end with a code of `StatusOK` in case of an error,
+			// if `exitCode` contains the value of `StatusOK`, the flow-of-control will
+			// implicitly modify it
+			if code != exitCode && exitCode != commons.StatusOK {
 				t.Errorf(
-					"(rootCmd/RunE) unexpected exit code found! \nroot path: "+
-						"`%v` \nexpected exit code: %v \nexit code found: %v",
-					path,
-					commons.UnexpectedError,
+					"(rootCmd/RunE) failed test \nexpected exit code: %d "+
+						"\nexit code found: %d",
+					exitCode,
 					code,
 				)
 			}
 		})
 
-		_ = cmd.PreRunE(&cmd, []string{})
+		_ = cmd.RunE(cmd, []string{})
 	}
-
-	monkey.UnpatchInstanceMethod(reflect.TypeOf(&userInput), "Initialize")
-	monkey.Unpatch(os.Exit)
 }

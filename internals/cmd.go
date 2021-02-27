@@ -14,19 +14,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	// String containing current version - should be updated with new(er) releases. Do
-	// not add `v` or `Version` or any other prefixes to this.
-	version = "0.0.1"
-
-	// Project title - used in sample commands and stuff
-	title = "auto-sub"
-)
-
-// Maximum input arguments allowed - acts as layer of abstraction; ensuring changes to
-// this value do not break tests. All arguments to be optional.
-var maxInputArgs = 1
-
 // Central copy of user input variable - used to keep a track of user input. Using a
 // global variable is needed since the same variable will be read by the central
 // root command (can't pass in custom parameters :/)

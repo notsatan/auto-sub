@@ -215,7 +215,7 @@ func TestHandlerTest(t *testing.T) {
 
 	// String containing the version being used for testing - will be used to apply
 	// patches and then verify if the method can correctly find the version
-	version = "4.31.12"
+	version := "4.31.12"
 
 	// Patch applied in the loop
 	defer monkey.UnpatchInstanceMethod(reflect.TypeOf(tempCmd), "Output")

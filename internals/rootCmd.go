@@ -17,6 +17,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// String containing current version - should be updated with new(er) releases. Do
+	// not add `v` or `Version` or any other prefixes to this.
+	version = "0.0.1"
+
+	// Project title - used in sample commands and stuff
+	title = "auto-sub"
+)
+
 var cmd = &cobra.Command{
 	// Shortened usage sample
 	Use: fmt.Sprintf("%s [\"/path/to/root\"] [flags]", title),
@@ -27,8 +36,19 @@ var cmd = &cobra.Command{
 		title,
 	),
 
-	Long:    "",
-	Example: "",
+	Long: `
+A command-line utility tool to batch add subtitles, attachments
+and/or chapters to multiple media files using FFmpeg.
+
+**Important**: Requires FFmpeg in the backend. Make sure to have
+FFmpeg installed, test your setup with the ` + "`--test`" + ` flag to verify.
+
+File types are recognized through their extensions, the resultant
+file will always be in a matroska (mkv) container.
+
+The subtitle stream language/title can be modified using flags
+`,
+
 	Version: version,
 
 	/*
@@ -131,7 +151,7 @@ var cmd = &cobra.Command{
 					args[i],
 				)
 
-				return fmt.Errorf("unexpected internal error")
+				return fmt.Errorf(`unexpected argument "%s"`, args[i])
 			}
 		}
 
