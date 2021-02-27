@@ -92,8 +92,8 @@ var cmd = &cobra.Command{
 	},
 
 	Args: func(cmd *cobra.Command, args []string) error {
-		// Changing the value of the logger if required; making this change in here
-		// as this method is run before the other methods (even before `PreRunE`) :/
+		// Changing the value of the logger if required; making this change here
+		// since this method is run before the other methods (even before `PreRunE`) :/
 		if userInput.Logging {
 			log.SetLevel(log.TraceLevel)
 			log.Debugf("(rootCmd/Args) modify logger level to `trace`")
@@ -146,35 +146,18 @@ var cmd = &cobra.Command{
 			commons.Printf("\nLogging enabled \nLog level set to `Trace`\n\n")
 		}
 
-		// Handle the test flag - once done, direct exit, ensuring that the test
-		// flag can't be combined with any other flag
 		if userInput.IsTest {
-			ffmpegVersion, ffprobeVersion := handlerTest()
-			if ffmpegVersion == "" || ffprobeVersion == "" {
-				commons.Printf(
-					"Ran into an unexpected error! Attempting fallback \n\t"+
-						"FFmpeg Version: %v\n\tFFprobe Version: %v\n\n",
-					ffmpegVersion,
-					ffprobeVersion,
-				)
+			// Handle the test flag - once done, direct exit, ensuring that the test
+			// flag can't be combined with any other flag
+			exitCode := handleTestFlag()
 
-				os.Exit(commons.ExecNotFound)
-			} else {
-				commons.Printf(
-					"FFmpeg version found: %v\n"+
-						"FFprobe version found: %v\n\n",
-					ffmpegVersion,
-					ffprobeVersion,
-				)
-
-				// Direct exit - test flag can't be combined with any other flag
-				log.Debugf("(rootCmd/RunE) test flag found, direct exit")
-				os.Exit(commons.StatusOK)
-			}
+			// Direct exit
+			log.Debugf("(rootCmd/RunE) test flag found, direct exit")
+			os.Exit(exitCode)
 		}
 
 		// Root path has been validated already
-		_, _ = ffmpeg.TraverseRoot( // TODO: Don't ignore these values
+		exitCode, err := ffmpeg.TraverseRoot(
 			&userInput,
 
 			// Defaulting output directory to `<root-dir>/auto-sub [output]`
@@ -184,6 +167,64 @@ var cmd = &cobra.Command{
 			),
 		)
 
+		if exitCode != commons.StatusOK || err != nil {
+			if exitCode == commons.StatusOK {
+				// If `err` is not null, the application will be force-stopped. In the
+				// unlikely scenario when `err` is not null, but the exit code is
+				// normal, this block of code will change the exit code to signify a
+				// crash.
+				log.Debugf(
+					"(rootCmd/RunE) modify value of exit code received."+
+						"\noriginal value: %d \nupdated value: %d",
+					commons.StatusOK,
+					commons.UnexpectedError,
+				)
+
+				exitCode = commons.UnexpectedError
+			}
+
+			log.Debugf(
+				"(rootCmd/RunE) force-kill due to failure in `ffmpeg.Traverse()`"+
+					"\nexit code: %d \nerror: %v",
+				exitCode,
+				err,
+			)
+
+			commons.Printf("Error: %v", err)
+			if err := cmd.Help(); err != nil {
+				log.Debugf(
+					"(rootCmd/RunE) an error occurred while printing the help "+
+						"message \ntraceback: %v",
+					err,
+				)
+			}
+
+			os.Exit(exitCode)
+		}
+
 		return nil
 	},
+}
+
+func handleTestFlag() (exitCode int) {
+	ffmpegVersion, ffprobeVersion := handlerTest()
+	if ffmpegVersion == "" || ffprobeVersion == "" {
+		commons.Printf(
+			"Ran into an unexpected error! Attempting fallback\n\t"+
+				"FFmpeg Version: %v\n\tFFprobe Version: %v\n\n",
+			ffmpegVersion,
+			ffprobeVersion,
+		)
+
+		return commons.ExecNotFound
+	}
+
+	commons.Printf(
+		"FFmpeg version found: %v\n"+
+			"FFprobe version found: %v\n\n",
+		ffmpegVersion,
+		ffprobeVersion,
+	)
+
+	return commons.StatusOK
 }

@@ -181,13 +181,14 @@ logged as required.
 */
 func (userInput *UserInput) log() {
 	log.Debugf(
-		"Logging user input: \n\nRoot path: `%s`\n"+
-			"FFmpeg Executable: `%s`\n"+
-			"FFprobe Executable: `%s`\n"+
+		"Logging user input: \n"+
+			`Root path: "%s"`+"\n"+
+			`FFmpeg Executable: "%s"`+"\n"+
+			`FFprobe Executable: "%s"`+"\n"+
 			"Logging Enabled: %v\n"+
 			"Test Mode: %v\n"+
-			`Exclusions: ["%v"]`+
-			"\nRegex Exclusions: `%v`\n",
+			`Exclusions: ["%v"]`+"\n"+
+			"Regex Exclusions: `%v`",
 		userInput.RootPath,
 		userInput.FFmpegPath,
 		userInput.FFprobePath,
