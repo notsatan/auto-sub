@@ -9,7 +9,7 @@ import (
 )
 
 // Name of the text file containing logs
-var logFile = "logs.txt"
+const logFile = "logs.txt"
 
 // Entry point when the script is run - sets up a logger, and hands over the flow
 // of control to the central command.
@@ -26,21 +26,21 @@ func main() {
 
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 	if err != nil {
-		// If the file can't be opened, setting the output channel to be stderr
+		// If the file can't be opened, set the output channel to be stderr
 		log.SetOutput(os.Stderr)
-
-		log.Warn("Error; failed to open a connection to the log file")
+		log.Warn("(main/main) failed to open a connection to the log file")
 	} else {
 		// Writing logs to the log file.
 		log.SetOutput(file)
 
-		// Closing the log file when the main function ends.
+		// Close the log file when the function ends.
 		defer func() {
 			if err := file.Close(); err != nil {
-				log.Warn("Failed to close connection to the log file")
+				log.Warn("(main/main) failed to close connection to the log file")
 			}
 		}()
 	}
 
+	// Call the main internal method
 	internals.Execute()
 }

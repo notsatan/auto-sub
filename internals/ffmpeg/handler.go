@@ -23,7 +23,45 @@ import (
 )
 
 /*
-TraverseRoot is public function that traverses the root directory and works on the
+Set of arrays containing extensions for various recognized file-types.
+
+Files ending with one of these known extensions will be treated as such (for example,
+a file have an extension from `videoExt` will be considered as the main video file).
+
+Note: While the elements in these array(s) are file extensions, they do not contain
+period - will be added during runtime while comparing. Also, ensure all the extensions
+are in LOWER case; ensures comparisons be case insensitive.
+*/
+var (
+	videoExt = []string{
+		"mkv",
+		"mp4",
+		"webm",
+		"m2ts",
+	}
+
+	subsExt = []string{
+		"srt",
+		"ass",
+		"sup",
+		"pgs",
+		"vtt",
+	}
+
+	attachmentExt = []string{
+		"ttf",
+		"otf",
+	}
+
+	// Ideally should be present with `attachments` - creating a separate array since
+	// the mime type for chapters/tags (or any XML file) will be different.
+	chaptersExt = []string{
+		"xml",
+	}
+)
+
+/*
+TraverseRoot is the public function that traverses the root directory working on
 sub-directories present in it.
 
 This function acts as a public interface connecting the internal workings of the
@@ -36,6 +74,13 @@ func TraverseRoot(
 	input *commons.UserInput, // user input
 	resDir string, // full path to output directory
 ) (exitCode int, err error) {
+	log.Debugf(
+		`(ffmpeg/TraverseRoot) traversing root directory: "%s"`+"\n"+
+			`storing result in: "%s"`,
+		input.RootPath,
+		resDir,
+	)
+
 	// Check if result directory exists in the root directory, if not, attempt to
 	// create one - return error if the latter fails
 	item, err := os.Stat(resDir)
@@ -47,19 +92,19 @@ func TraverseRoot(
 
 		if err = os.Mkdir(resDir, os.ModeDir); err != nil {
 			log.Warnf(
-				"(ffmpeg/TraverseRoot) failed to create directory: \"%v\""+
+				`(ffmpeg/TraverseRoot) failed to create directory: "%s"`+
 					"\nerror traceback: `%v`\n",
 				resDir,
 				err,
 			)
 
 			return commons.UnexpectedError,
-				errors.New("failed to create destination directory")
+				errors.New("unable to create destination directory")
 		}
 	} else if err != nil || !item.IsDir() {
 		// Error if the check failed, or root path points to non-directory item
 		log.Debugf(
-			"(ffmpeg/TraverseRoot) failed while checking for result directory "+
+			"(ffmpeg/TraverseRoot) failed to check for result directory "+
 				"\nerror: %v \nitem type: %+v",
 			err,
 			item,
@@ -89,8 +134,7 @@ func TraverseRoot(
 			input,
 		)
 
-		// TODO: Print a completion message here
-		return // Direct return to the calling method
+		return commons.StatusOK, nil
 	}
 
 	// Variable to keep a track of source directories preset in the root directory;
@@ -130,13 +174,25 @@ SourceDir is the central function that makes calls to FFmpeg to soft-sub media f
 with extras found in the source directory.
 
 Once the command is fired, the function will then internally monitor the encoding
-trackProgress.
+progress via a goroutine.
 */
-func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
+func sourceDir(sourceDir, resDir string, input *commons.UserInput) (exitCode int) {
+	log.Debugf(`(ffmpeg/sourceDir) processing source directory: "%s"`, sourceDir)
+
 	// Fetch grouped list of files present in the source directory
 	mediaFiles, subtitles, attachments, chapters := groupFiles(
-		path,
+		sourceDir,
 		input,
+	)
+
+	log.Debugf(
+		`(ffmpeg/sourceDir) grouped files for source directory "%s"`+
+			"\nMediafile: %s \nChapters: %s \nSubtitles: %s \nAttachments: %s",
+		sourceDir,
+		commons.Stringify(&mediaFiles),
+		commons.Stringify(&chapters),
+		commons.Stringify(&subtitles),
+		commons.Stringify(&attachments),
 	)
 
 	/*
@@ -148,10 +204,10 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 	*/
 	switch {
 	case len(mediaFiles) == 0:
-		log.Debugf("(ffmpeg/sourceDir) no media file in path: `%v`", path)
+		log.Debugf(`(ffmpeg/sourceDir) no media file in path: "%s"`, sourceDir)
 		commons.Printf(
-			"Error: failed to locate any media file \n\tPath: `%s`",
-			path,
+			`Error: failed to locate any media file \n\tPath: "%s"`,
+			sourceDir,
 		)
 
 		return commons.SourceDirectoryError
@@ -159,14 +215,14 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 		log.Debugf(
 			"(ffmpeg/sourceDir) mutiple media files found in source directory"+
 				"\ndirectory: `%v` \nfiles: %v",
-			path,
+			sourceDir,
 			commons.Stringify(&mediaFiles),
 		)
 
 		commons.Printf(
 			"Error: multiple media files in source directory\n\t"+`Path: "%s"`+
 				"\n\nFiles found: \n%s",
-			path,
+			sourceDir,
 			commons.Stringify(&mediaFiles),
 		)
 
@@ -174,14 +230,14 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 	case len(subtitles) == 0 && len(attachments) == 0 && len(chapters) == 0:
 		// There should be at least one subtitle/chapter/attachment file
 		log.Debugf(
-			"(ffmpeg/sourceDir) failed to locate additional files.\npath: `%v`",
-			path,
+			`"(ffmpeg/sourceDir) failed to locate additional files.\npath: "%v"`,
+			sourceDir,
 		)
 
 		commons.Printf(
-			"Error: failed to find any additional files in source directory "+
-				"\nPath: %s",
-			path,
+			"Error: failed to find any additional files in source directory\n"+
+				`Path: "%s"`,
+			sourceDir,
 		)
 
 		return commons.SourceDirectoryError
@@ -189,7 +245,7 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 
 	// Generate the FFmpeg command to run for the source directory
 	cmd := generateCmd(
-		path,
+		sourceDir,
 		input,
 		resDir,
 
@@ -201,15 +257,14 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 	)
 
 	/*
-		Two buffers; will be used to read command output as the FFmpeg command is being
-		executed.
+		Two buffers; will be used to read command output as the command runs
 
-		One of these buffers will be used to actively track (and update) the encoding
-		progress using a goroutine in the background - this buffer will be cleared
-		by the background thread (ensuring that the value in this buffer is always
-		updated)
+		One of buffer will be used to actively track (and update) the progress using a
+		goroutine in the background - this buffer will be cleared by the background
+		thread when required.
 
-		Second buffer will act as a log dump - used in case of a crash.
+		Second buffer will be used as a log dump, i.e. to log the output if needed in
+		case of a crash.
 	*/
 	var progBuf strings.Builder
 	var logBuf strings.Builder
@@ -222,28 +277,42 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 	// are being performed in the background.
 	signal := make(chan bool)
 
-	// Deferred function call to ensure the coroutine stops before this function ends
+	// Deferred function call to ensure the goroutine stops before this function ends
 	defer func(sig *chan bool) {
-		// Sending a signal informs the goroutine that it should close itself.
+		log.Debugf(
+			"(ffmpeg/sourceDir) wrapping up progress thread for source "+
+				`directory: "%s"`,
+			sourceDir,
+		)
+
+		// Emitting a signal; informs the goroutine that that the ffmpeg command has
+		// completed its execution.
 		*sig <- true
 
 		// Receive a value from the signal - acts as an indicator from the goroutine
-		// that it is now ready to be closed.
+		// that it has performed final updates and closed.
 		<-*sig
 
-		// Finally, close the channel
+		// Finally, close the channel as well.
 		close(*sig)
+
+		log.Debugf(
+			`(ffmpeg/sourceDir) completed processing source directory: "%s"`,
+			sourceDir,
+		)
 	}(&signal)
 
+	// An instance of the updates structure; will perform updates in the background
 	updateThread := Updates{
 		userInput:   input,
-		filePath:    filepath.Join(path, mediaFiles[0].Name()),
+		filePath:    filepath.Join(sourceDir, mediaFiles[0].Name()),
 		fileName:    mediaFiles[0].Name(),
-		sourceDir:   path,
+		sourceDir:   sourceDir,
 		resDir:      resDir,
 		totalFrames: 0,
 	}
 
+	// Initializing the updates variable; performs internal household chores
 	updateThread.Initialize()
 
 	// Firing a goroutine; this function will track (and update) progress of the running
@@ -264,44 +333,6 @@ func sourceDir(path, resDir string, input *commons.UserInput) (exitCode int) {
 
 	return commons.StatusOK
 }
-
-/*
-Set of arrays containing extensions for various recognized file-types.
-
-Files ending with one of these known extensions will be treated as such (for example,
-a file have an extension from `videoExt` will be considered as the main video file).
-
-Note: While the elements in these array(s) are file extensions, they do not contain
-period - will be added during runtime while comparing. Also, ensure all the extensions
-are in LOWER case; ensures comparisons be case insensitive.
-*/
-var (
-	videoExt = []string{
-		"mkv",
-		"mp4",
-		"webm",
-		"m2ts",
-	}
-
-	subsExt = []string{
-		"srt",
-		"ass",
-		"sup",
-		"pgs",
-		"vtt",
-	}
-
-	attachmentExt = []string{
-		"ttf",
-		"otf",
-	}
-
-	// Ideally should be present with `attachments` - creating a separate array since
-	// the mime type for chapters/tags (or any XML file) will be different.
-	chaptersExt = []string{
-		"xml",
-	}
-)
 
 /*
 CheckExt is a helper function designed to check if a file contains a extension from a
@@ -565,16 +596,6 @@ func generateCmd(
 				),
 			),
 		),
-	)
-
-	log.Debugf(
-		"Source Directory: %s \nMediaFile: \"%s\" \nSubtitles: %s \nChapters: %s"+
-			"\nAttachments: %s\n\n",
-		sourceDir,
-		mediaFile.Name(),
-		commons.Stringify(&subsFound),
-		commons.Stringify(&chaptersFound),
-		commons.Stringify(&attachmentFound),
 	)
 
 	cmd = exec.Command(

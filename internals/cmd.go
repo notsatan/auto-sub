@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -13,23 +14,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	// String containing current Version - should be updated with new(er) releases. Do
-	// not add `v` or `Version` or any other prefixes to this.
-	version = "0.0.1"
-
-	// Project title - used in sample commands and stuff
-	title = "auto-sub"
-)
-
-// Maximum number of UserInput arguments allowed - acts as layer of abstraction;
-// ensuring changes to this value do not break tests. All arguments to the command
-// are designed to be optional.
-var maxInputArgs = 1
-
-// Central copy of user input variable - used to keep a track of user input.
-// Global variable is needed since the same variable will be read by the central
-// command object (can't pass in custom parameters :/)
+// Central copy of user input variable - used to keep a track of user input. Using a
+// global variable is needed since the same variable will be read by the central
+// root command (can't pass in custom parameters :/)
 var userInput commons.UserInput
 
 /*
@@ -44,11 +31,8 @@ func Execute() {
 	// unless custom path is supplied by the user, or the executables can't be found
 	ffmpegPath, ffprobePath := findBinaries()
 
-	// Create the root command.
-	rootCommand := getRootCommand()
-
 	// Override the output for `--version` flag - default output is (relatively) ugly
-	rootCommand.SetVersionTemplate(
+	cmd.SetVersionTemplate(
 		fmt.Sprintf(
 			`
 %s v%s
@@ -66,19 +50,18 @@ Licensed under MIT
 	)
 
 	// Add flags to root command
-	boolFlags(rootCommand, &userInput)
+	boolFlags(cmd, &userInput)
 	stringFlags(
-		rootCommand,
+		cmd,
 		&userInput,
 		&ffmpegPath,
 		&ffprobePath,
 	)
 
-	if rootErr := rootCommand.Execute(); rootErr != nil {
+	if rootErr := cmd.Execute(); rootErr != nil {
 		// Force-quit in case an error is encountered.
 		log.Errorf("(cmd/Execute) encountered an error: \n%v", rootErr)
-		_, _ = fmt.Fprintf(
-			rootCommand.OutOrStderr(),
+		commons.Printf(
 			"\nEncountered an unexpected error! Check logs for details\n",
 		)
 
@@ -88,7 +71,7 @@ Licensed under MIT
 }
 
 /*
-BoolFlags is a helper function to attach all the boolean flags to the command
+BoolFlags is a simple helper function to attach boolean flags to the command
 */
 func boolFlags(command *cobra.Command, input *commons.UserInput) {
 	command.Flags().BoolVar(
@@ -117,26 +100,26 @@ func boolFlags(command *cobra.Command, input *commons.UserInput) {
 		"help",
 		"h",
 		false,
-		"Show the help for auto-sub command and flags",
+		"Show this help for auto-sub command and flags",
 	)
 
 	command.Flags().BoolP(
 		"version",
 		"v",
 		false,
-		"Show the current version number",
+		"Display the current version number for "+title,
 	)
 }
 
 /*
-StringFlags is a helper function to add all string flags to the command.
+StringFlags is a simple helper function to add all string flags to the command.
 */
 func stringFlags(command *cobra.Command, input *commons.UserInput, ffmpegPath,
 	ffprobePath *string) {
-	// Message used to log if a flag can't be marked as required
-	requireFailMsg := "(cmd/stringFlags) failed to set `%s` flag as required\nerror; %v"
+	// Message to log if a flag can't be marked as required
+	failMsg := "(cmd/stringFlags) failed to mark `%s` flag as required\nerror; %v"
 
-	// Do not mark the root flag as required - it can be passed in as a normal argument
+	// Do not mark the root flag as required - it can be passed in as an argument too!
 	rootFlag := "root" // easy access/modification
 	command.Flags().StringVar(
 		&input.RootPath,
@@ -162,11 +145,11 @@ func stringFlags(command *cobra.Command, input *commons.UserInput, ffmpegPath,
 		"Path to ffmpeg executable",
 	)
 
-	// Mark ffmpeg flag as required if the executable could not be located
+	// Mark ffmpeg flag as required if the executable could not be located implicitly
 	if *ffmpegPath == "" {
 		if err := command.MarkFlagRequired(ffmpegFlag); err != nil {
 			log.Debugf(
-				requireFailMsg,
+				failMsg,
 				ffmpegFlag,
 				err,
 			)
@@ -185,7 +168,7 @@ func stringFlags(command *cobra.Command, input *commons.UserInput, ffmpegPath,
 	if *ffprobePath == "" {
 		if err := command.MarkFlagRequired(ffprobeFlag); err != nil {
 			log.Debugf(
-				requireFailMsg,
+				failMsg,
 				ffprobeFlag,
 				err,
 			)
@@ -207,18 +190,17 @@ func stringFlags(command *cobra.Command, input *commons.UserInput, ffmpegPath,
 		"Regex pattern to dictate files to be ignored",
 	)
 
-	command.Flags().StringVarP(
+	command.Flags().StringVar(
 		&input.SubTitleString,
 		"subtitle",
-		"T",
 		"",
-		"Custom title for subtitles files (defaults to the name of file)",
+		"Custom title for subtitles files",
 	)
 
 	command.Flags().StringVarP(
 		&input.SubLang,
 		"language",
-		"L",
+		"l",
 		"eng", // set default subtitle language to english
 		"Subtitle language",
 	)
@@ -231,7 +213,7 @@ If either value is not found, the corresponding string in the result will be lef
 empty and the error will be internally logged (if logging is enabled)
 
 P.S. Better name for the function would have been `fetchExecutables` - but was too long
-for a function that will be used just once, and `fetchExecs` looked weird!
+for a function that will be used just once, and `fetchExecs` looked weird :(
 */
 func findBinaries() (ffmpegPath, ffprobePath string) {
 	if path, err := exec.LookPath("ffmpeg"); err != nil {
@@ -239,7 +221,7 @@ func findBinaries() (ffmpegPath, ffprobePath string) {
 		log.Debugf("(cmd/findBinaries) unable to locate ffmpeg! \n`%v`", err)
 	} else {
 		ffmpegPath = path
-		log.Debugf("(cmd/findBinaries) ffmpeg found at: `%s`", ffmpegPath)
+		log.Debugf("(cmd/findBinaries) ffmpeg binary found at: `%s`", ffmpegPath)
 	}
 
 	if path, err := exec.LookPath("ffprobe"); err != nil {
@@ -251,4 +233,54 @@ func findBinaries() (ffmpegPath, ffprobePath string) {
 	}
 
 	return ffmpegPath, ffprobePath
+}
+
+/*
+HandlerTest is a function designed to consume `test` flag. This function will attempt to
+test the entire setup - to be used by users after to check if dependencies are present
+as required.
+
+Will attempt to fetch the versions for `ffmpeg` and `ffprobe` in the back-end and return
+the same to calling method.
+
+Return value of empty string(s) signifies an error occurred while attempting to call
+the executable(s) - in case of an error, the traceback will be logged implicitly
+*/
+func handlerTest() (ffmpegVersion, ffprobeVersion string) {
+	// Regex pattern to fetch the next word after the word `version` to fetch the
+	// version tag from the output of the command. Might need to change it if the
+	// output of ffmpeg is modified.
+	regex := regexp.MustCompile(`version (\S*)`)
+
+	// Running ffmpeg executable with a `-version` flag.
+	output, err := exec.Command(userInput.FFmpegPath, "-version").Output()
+	if err != nil {
+		// If error occurs, log and proceed normally - `ffmpegVersion` will remain blank
+		log.Warnf("(rootCmd/handlerTest) failed to fetch ffmpeg version: \n%v", err)
+	} else {
+		// Extracting version from the output of the command.
+		//
+		// Note: The first index in the result will be the entire string that matches
+		// the regex pattern, following this, (index 1 and on) will be contents from the
+		// capture group(s) sequentially.
+		//
+		// Extracting info from the first capture group (at index 1) directly. If the
+		// output of `ffmpeg -version` command changes in the future, this may need
+		// to be modified.
+		ffmpegVersion = string(regex.FindSubmatch(output)[1])
+	}
+
+	// Running the same command for ffprobe
+	output, err = exec.Command(userInput.FFprobePath, "-version").Output()
+	if err != nil {
+		// If error occurs, log and proceed - `ffprobeVersion` will be a blank string.
+		log.Warnf("(rootCmd/handlerTest) failed to fetch ffprobe version: \n%v", err)
+	} else {
+		// Note: Using `regex.FindSubmatch` - same as above. Might need to modify this
+		// if the output of version command changes.
+		ffprobeVersion = string(regex.FindSubmatch(output)[1])
+	}
+
+	// If `err` was not null in any scenario, the string will be empty.
+	return ffmpegVersion, ffprobeVersion
 }

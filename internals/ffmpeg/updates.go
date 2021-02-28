@@ -149,6 +149,9 @@ func (update *Updates) DisplayUpdates(buffer *strings.Builder, interrupt chan bo
 		select {
 		case <-interrupt:
 			// Interrupt received, time to kill the goroutine!
+			log.Debugf(
+				`(Updates/DisplayUpdates) received signal to kill background thread`,
+			)
 
 			/*
 				Update value of the progress bar to display 100% completion (since the
@@ -166,6 +169,7 @@ func (update *Updates) DisplayUpdates(buffer *strings.Builder, interrupt chan bo
 			// Printing the latest values, FPS counter can remain unchanged
 			commons.Printf(update.getProgress(frames, fps, size) + "\n\n\n")
 
+			log.Debugf(`(Updates/DisplayUpdates) killing the background thread`)
 			interrupt <- true // indicates the goroutine is done
 			return
 
