@@ -35,15 +35,16 @@
 <!-- TABLE OF CONTENTS -->
 - [About the project](#about-the-project)
 - [Terminology](#terminology)
-  - [Extra File](#extra-file)
-  - [Media File](#media-file)
-  - [Source Directory](#source-directory)
-  - [Root Directory](#root-directory)
+    - [Extra File](#extra-file)
+    - [Media File](#media-file)
+    - [Source Directory](#source-directory)
+    - [Root Directory](#root-directory)
 - [Installation](#installation)
-  - [Quickstart](#quickstart)
   - [Compiling from source](#compiling-from-source)
 - [Setup](#setup)
 - [Documentation](#documentation)
+    - [Syntax](#syntax)
+    - [Flags](#flags)
 - [License](#license)
 - [Roadmap](#roadmap)
 
@@ -55,28 +56,27 @@ The final result will be present inside a matroska (`.mkv`) container.
 
 ## Terminology
 
-### Extra File
+#### Extra File
 Extra file refers to any non-media file type. This can be subtitles, chapters, attachments, tags, etc.
 
-### Media File
+#### Media File
 Media file is the main input file for FFmpeg, can be a file of type `.mkv`, `.mp4`, etc.
 
-### Source Directory 
+#### Source Directory 
 The main directory containing an individual media file. Each source directory should contain exactly one media file (`mkv/mp4/webm/etc`), and atleast one or more subtitle file, attachments or chapters.
 
 Requirements for a valid source directory are:
  - Contains exactly one [media file](#media-file)
  - Contains atleast one or more [extra file](#extra-file) (extra files can be subtitles, chapters, attachments, etc)
 
-
-### Root Directory
+#### Root Directory
 Parent directory containing atleast one or more source directories.
 
 The only requirements for a valid root directory are; it should contain one or more source directories.
 
 As an example;
 ```    
-    /home/mnt/User/Movies
+  /home/User/Movies
     ├── Dir 01
     │   ├── subtitles.ass
     │   ├── Movie 01.mkv
@@ -89,24 +89,27 @@ As an example;
     │   └── tags.xml
 ```
 
-In the example above, \``/home/mnt/User/Movies`\` acts as the [*root* directory](#root-directory), this root directory contains two [source directories](#source-directory) inside it; namely, \``Dir 01`\` and \``Dir 02`\`.
+In the example above, \``/home/User/Movies`\` acts as the [*root* directory](#root-directory), this root directory contains two [source directories](#source-directory) inside it; namely, \``Dir 01`\` and \``Dir 02`\`.
 
 And each of these source directories further contains a media file (`Movie XX.mkv`), a subtitle file, and accompanying chapters and tags.
 
 ## Installation
 
-`auto-sub` is a Go program and can be installed as an individual binary/executable file. 
+`auto-sub` is a Go program, it can be installed as a simple binary/executable file.
 
-### Quickstart
-- Download the relevant binary
-- Extract the `auto-sub` or `auto-sub.exe` binary from the archive
+- [Download](https://github.com/demon-rem/auto-sub/releases) the relevant binary for your system.
+- Extract the `auto-sub` or `auto-sub.exe` file from the archive
 - Run `auto-sub -v` to test
 
 Check out the [documentation](#documentation) for more info on how to use auto-sub.
 
+Windows users can register the path to the executable as an [environment variable](https://stackoverflow.com/a/64233155/) to run auto-sub from command prompt without having to change directories.
+
+Linux/Mac users can move the binary to `/usr/local/bin` (or `/usr/bin` depending on your requirements) to achieve the same result.
+
 ### Compiling from source
 
-Note: These instructions are to generate an executable from the source-code by yourself. If you want an easier solution, check out the [setup section](#setup) to download a pre-compiled executable.
+Note: These instructions are to generate an executable from the source-code by yourself. If you want an easier solution, check out the [installation section](#installation) to download a pre-compiled executable.
 
 Make sure you have [Go](https://golang.org/) installed. [Download Go](https://golang.org/dl/) for your system if required.
 
@@ -134,7 +137,32 @@ Start by testing out your setup.
 auto-sub --test
 ```
 
-If the command fails to fetch the version number for FFmpeg or FFprobe, head over to the [setup](#setup) section to install FFmpeg and FFprobe.
+If the auto-sub fails to fetch versions for FFmpeg or FFprobe, head over to the [setup](#setup) section to install FFmpeg and FFprobe, make sure you have FFmpeg as well as FFprobe installed in your system. If the issue persists, consider filing a [bug-report](https://github.com/demon-rem/auto-sub/issues)
+
+#### Syntax
+
+Auto-sub is simply a wrapper over FFmpeg, its syntax is like this;
+
+```bash
+auto-sub ["/path/to/root"] [flags]
+```
+
+Note: In the command above, the only part compulsary is the path to the root/source directory. The path to the root directory can be provided as an argument, **or** through the appropriate flag.
+
+#### Flags
+
+Flags can help you fine-tune the workings of auto-sub to meet your requirements, such as ignoring a particular file, or ignoring any file that meets a regex pattern, and more.
+
+This section lists out all the possible flags accepted, and their default values (if any).
+
+Note that **all** of these flags are optional - as such, auto-sub can work perfectly fine even without them!
+
+|    Flag   	| Short-hand 	| Expected Value               	| Purpose                              	| Default Value 	|   	|
+|:---------:	|------------	|------------------------------	|--------------------------------------	|---------------	|---	|
+|   --root  	|    none    	| String containing valid path 	| Path to the root directory           	|      none     	|   	|
+|   --test  	|    none    	|             none             	| Run test(s) to verify your setup     	|      none     	|   	|
+| --version 	|    none    	| none                         	| Display current version for auto-sub 	| none          	|   	|
+|           	|            	|                              	|                                      	|               	|   	|
 
 ## License
 
