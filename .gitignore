@@ -17,3 +17,6 @@ coverage.html
 
 # Log file
 logs.txt
+
+# Build directory for documentation
+/docs/_build/
