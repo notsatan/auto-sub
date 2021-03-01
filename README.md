@@ -44,7 +44,9 @@
 - [Setup](#setup)
 - [Documentation](#documentation)
     - [Syntax](#syntax)
-    - [Flags](#flags)
+  - [Flags](#flags)
+  - [Boolean Flags](#boolean-flags)
+  - [Miscellaneous Flags](#miscellaneous-flags)
 - [License](#license)
 - [Roadmap](#roadmap)
 
@@ -149,7 +151,7 @@ auto-sub ["/path/to/root"] [flags]
 
 Note: In the command above, the only part compulsary is the path to the root/source directory. The path to the root directory can be provided as an argument, **or** through the appropriate flag.
 
-#### Flags
+### Flags
 
 Flags can help you fine-tune the workings of auto-sub to meet your requirements, such as ignoring a particular file, or ignoring any file that meets a regex pattern, and more.
 
@@ -157,12 +159,30 @@ This section lists out all the possible flags accepted, and their default values
 
 Note that **all** of these flags are optional - as such, auto-sub can work perfectly fine even without them!
 
-|    Flag   	| Short-hand 	| Expected Value               	| Purpose                              	| Default Value 	|   	|
-|:---------:	|------------	|------------------------------	|--------------------------------------	|---------------	|---	|
-|   --root  	|    none    	| String containing valid path 	| Path to the root directory           	|      none     	|   	|
-|   --test  	|    none    	|             none             	| Run test(s) to verify your setup     	|      none     	|   	|
-| --version 	|    none    	| none                         	| Display current version for auto-sub 	| none          	|   	|
-|           	|            	|                              	|                                      	|               	|   	|
+
+### Boolean Flags
+
+|    Flag   	| Short-hand 	|                     Purpose                    	|
+|:---------:	|------------	|:----------------------------------------------:	|
+|   --log   	|    none    	|        Generate logs for the current run       	|
+|   --test  	|    none    	|        Run test(s) to verify your setup        	|
+| --version 	|     -v     	|      Display current version for auto-sub      	|
+|   --help  	|     -h     	|            Display help for auto-sub           	|
+|  --direct 	|    none    	| Treat the root directory as a source directory 	|
+
+<br>
+
+### Miscellaneous Flags
+|    Flag    	| Short-hand 	| Expected Value  	| Purpose                                          	| Default Value                      	| Required 	|
+|:----------:	|------------	|-----------------	|--------------------------------------------------	|------------------------------------	|:--------:	|
+|   --root   	|    none    	|      String     	| Path to the root directory                       	|                none                	|    No    	|
+| --language 	|     -l     	|      String     	| Language code to be used with subtitles (if any) 	|                none                	|    No    	|
+| --subtitle 	|    none    	|      String     	| Custom title to be used for the subtitle files   	| Original name of the subtitle file 	|    No    	|
+|  --ffmpeg  	|    none    	|      String     	| Path to FFmpeg binary/executable                 	|         Decided at runtime         	|    Yes   	|
+|  --ffprobe 	|    none    	|      String     	| Path to FFprobe binary/executable                	|         Decided at runtime         	|    Yes   	|
+|  --exclude 	|     -E     	| List of strings 	| List of file names to be ignored                 	|                none                	|    No    	|
+| --rexclude 	|    none    	|      String     	| String containing regex pattern to ignore files  	|                none                	|    No    	|
+
 
 ## License
 
