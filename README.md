@@ -71,11 +71,15 @@
 - [Forks](#forks)
   - [Deploying a fork](#deploying-a-fork)
 
+<br>
+
 ## About the project
 
 Auto-sub is simply a command line tool to batch add subtitles, chapters, attachments to media files using [FFmpeg](http://ffmpeg.org).
 
 The final result will be in a matroska (`.mkv`) container containing the original media file, along with subtitles, attachments, chapters, tags, etc.
+
+<br>
 
 ## Terminology
 
@@ -174,6 +178,7 @@ This section explains how to setup `auto-sub` to run it directly from the comman
 
 - Linux or Mac users can move the binary to `/usr/local/bin` (or `/usr/bin`) to achieve the same result.
 
+<br>
 
 ## Documentation
 
@@ -186,6 +191,8 @@ auto-sub ["/path/to/root"] [flags]
 ```
 
 Note: While using *auto-sub*, the only input required is the path to the root (or source) directory. This path can be provided as an argument, **or** through a the [root flag](#miscellaneous-flags).
+
+<br>
 
 ## Flags
 
@@ -215,8 +222,6 @@ Returns the current version of *auto-sub* present in your system.
 
 By default, the path entered is assumed to belong to a root directory (which will internally contain one or more source directories). In case you want to run *auto-sub* for an individual *source directory*, using this flag ensures that the path will be treated as a source directory. For more details, take a look at [source directory vs root directory](#source-directory-vs-root-directory)
 
-<br>
-
 #### Summary
 
 |    Flag   	| Short-hand 	|                   Purpose                  	|
@@ -229,7 +234,7 @@ By default, the path entered is assumed to belong to a root directory (which wil
 
 ### Miscellaneous Flags
 
-Flags that require a value while being used.
+Flags that require a value
 
 #### Root
 
@@ -251,11 +256,11 @@ Sets the title for the subtitle stream. If a value for this flag is not provided
 
 #### FFmpeg
 
-path to FFmpeg executable. This will be the binary file for Linux, and `.exe` file for Windows users. For most users, *auto-sub* should be able to implicitly fill this value during runtime. This flag can be used to modify the default value, or to manually enter the path to FFmpeg in case *auto-sub* is unable to locate it.
+Path to FFmpeg executable. This will be a binary file for Linux, and `.exe` file for Windows users. For most users, *auto-sub* should be able to implicitly fill this value during runtime. This flag can be used to modify the default value, or to manually enter the path to FFmpeg in case *auto-sub* is unable to locate it.
 
 #### FFprobe
 
-Similar to the `ffmpeg` flag, this flag sets the path to the FFprobe executable. Again, for most users, *auto-sub* should be able to implicitly populate this value during runtime.
+Similar to the [ffmpeg](#ffmpeg) flag, this flag sets the path to the FFprobe executable. Again, for most users, *auto-sub* should be able to implicitly populate this value during runtime.
 
 #### Exclude
 
@@ -264,8 +269,6 @@ Explicitly mark out files to be ignored using their names - note that files with
 #### RExclude
 
 Short for regex-exclude, this flag ignores any file that matches a regular expression. The regex syntax needs to be in accordance with [RE2](https://en.wikipedia.org/wiki/RE2_(software)). For a simple cheatsheet for RE2 regex syntax, you may want to take a look [here](https://github.com/google/re2/wiki/Syntax).
-
-<br>
 
 #### Summary
 
@@ -278,6 +281,8 @@ Short for regex-exclude, this flag ignores any file that matches a regular expre
 | --ffprobe  	| none       	| String          	| Path to FFprobe binary/executable                	| Runtime Dependent 	| Yes      	|
 | --exclude  	| -E         	| List of strings 	| List of file names to be ignored                 	| -                 	| No       	|
 | --rexclude 	| none       	| String          	| String containing regex pattern to ignore files  	| -                 	| No       	|
+
+<br>
 
 ## Advanced Usage
 
@@ -315,9 +320,13 @@ Supported file extensions;
 Supported file extensions;
  - `.xml`
 
+<br>
+
 ## License
 
 Distributed under the MIT License. See [LICENSE](./LICENSE) for details.
+
+<br>
 
 ## Roadmap
 
@@ -331,6 +340,8 @@ A large part of this functionality is already present in the program, neverthele
  - Config file (no gurantees)
  - Force flag (overwrite existing files - if any)
  - Custom naming for output files
+
+<br>
 
 ## Forks
 
