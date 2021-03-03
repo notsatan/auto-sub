@@ -115,8 +115,7 @@ In the example above, \``/home/User/Movies`\` acts as the *root directory*, this
 ### Wrap-up
 
 A simple summary for this section;
- - A source directory should have **exactly one** media file
- - A source directory should have **atleast one** extra file
+ - A source directory should have **exactly one** media file and **atleast one** extra file
  - Any directory containing **exactly one** media file, and **one or more** extra file(s) is a *source directory*
  - The parent directory containing **one or more** source directories is the *root directory*
 
@@ -144,13 +143,11 @@ go build
 ./auto-sub -v
 ```
 
-The steps above will generate a binary/executable file named `auto-sub` or `auto-sub.exe` by default.
+The steps above will generate a binary/executable file named `auto-sub` or `auto-sub.exe` in the same directory.
 
 ## Setup
 
-Auto-sub uses FFmpeg in the backend. Make sure you have FFmpeg and FFprobe installed before using *auto-sub*
-
-To install FFmpeg or FFprobe, follow the instructions listed [here](https://ffmpeg.org/download.html)
+Auto-sub uses FFmpeg in the backend. Make sure you have FFmpeg and FFprobe installed before using *auto-sub*. To install FFmpeg or FFprobe, follow the instructions listed [here](https://ffmpeg.org/download.html)
 
 Once done, move over to testing your setup with *auto-sub*;
 ```
@@ -194,7 +191,7 @@ Note: While using *auto-sub*, the only input required is the path to the root (o
 
 Flags can help you fine-tune the workings of *auto-sub* to match your needs, for example, ignoring a particular file, or ignoring any file that meets a regex pattern, and more.
 
-This section contains a comprehensive list of valid flags for *auto-sub*, their usage, default values, and expected input. Some flags may have a shorthand version in addition to the normal flag - both of these versions can be used interchangably as required.
+This section contains a comprehensive list of valid flags for *auto-sub*, their usage, default values, and expected input. Some flags may have a shorthand version in addition to the normal flag - both of these versions can be used interchangably.
 
 Note that **all** of these flags are optional - as such, *auto-sub* can work perfectly fine even without them!
 
@@ -204,15 +201,11 @@ All boolean flags are disabled by default, using a boolean flag while running *a
 
 #### Log
 
-Enables logging, generates a log report for the run. Log files will be helpful to get crash reports, and/or file issues for bugs.
-
-The log file will stored in the current working directory, named `[auto-sub] logs.txt` (run `cwd` in Windows, or `pwd` in Linux/Mac to get the working directory)
+Enables logging, generates a log report for the run. Log files will be helpful to get crash reports, and/or filing an issue for a bug. The log file will stored in the current working directory, named `[auto-sub] logs.txt` (run `cwd` in Windows, or `pwd` in Linux/Mac to get the working directory)
 
 #### Test
 
-Test flag exists to explicitly test your setup, this includes attempting to locate FFmpeg and FFprobe executables implicitly, and fetching their versions (if found)
-
-*Note*: *auto-sub* will quit once the test completes, as a result, as such, the test flag can't be used outside uh, running the initial test.
+Test flag exists to explicitly test your setup, this includes attempting to locate FFmpeg and FFprobe executables implicitly, and fetching their versions (if found). Once the test completes, *auto-sub* will exit by default, as such, the test flag can't be used outside running the initial test.
 
 #### Version
 
@@ -220,9 +213,7 @@ Returns the current version of *auto-sub* present in your system.
 
 #### Direct
 
-By default, the path entered is assumed to belong to a root directory (which will internally contain one or more source directories). In case you want to run *auto-sub* for an individual *source directory*, using this flag ensures that the path will be treated as a source directory. 
-
-Also, take a look at [source directory vs root directory](#source-directory-vs-root-directory)
+By default, the path entered is assumed to belong to a root directory (which will internally contain one or more source directories). In case you want to run *auto-sub* for an individual *source directory*, using this flag ensures that the path will be treated as a source directory. For more details, take a look at [source directory vs root directory](#source-directory-vs-root-directory)
 
 <br>
 
@@ -235,9 +226,6 @@ Also, take a look at [source directory vs root directory](#source-directory-vs-r
 | --version 	|     -v     	|    Display current version for auto-sub    	|
 |   --help  	|     -h     	|          Display help for auto-sub         	|
 |  --direct 	|      -     	| Treat root directory as a source directory 	|
-|           	|            	|                                            	|
-
-<br>
 
 ### Miscellaneous Flags
 
@@ -245,13 +233,13 @@ Flags that require a value while being used.
 
 #### Root
 
-Path to *root directory*. Note that path to root directory can also be passed in as an argument. 
+Path to *root directory*. Note that path to root directory can also be passed in as an argument. Passing path to the root directory as an argument *may* be deprecated/modified in the future, if you're making a bash/batch script wrapper around *auto-sub*, you may want to use this flag to mark the root directory instead of the argument.
 
-It is recommended to use this flag if you're creating a bash/batch script wrapper around *auto-sub*, passing path to the root directory as an argument *may* be deprecated/modified in the future.
+Note: This flag has a higher precedence than the argument, as such, if the path to root directory is passed in as an argument as well as through the flag, then the value obtained through the flag will be used as the root directory.
 
 #### Language
 
-Dictates the language code for subtitle files. Among other things, this will be used by mediaplayers to select/ignore a subtitle stream based on user preferences. The default value for this flag is "*eng*" (language code for English).[Here](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) is a comprehensive list of langauge codes.
+Dictates the language code for subtitle files. Among other things, this will be used by mediaplayers to select/ignore a subtitle stream based on user preferences. The default value for this flag is "*eng*" (language code for English). [Here](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) is a comprehensive list of langauge codes.
 
 *Note*: The same language code will be applied to all subtitle streams.
 
@@ -263,27 +251,19 @@ Sets the title for the subtitle stream. If a value for this flag is not provided
 
 #### FFmpeg
 
-path to FFmpeg executable. This will be the binary file for Linux, and `.exe` file for Windows users. For most users, *auto-sub* should be able to implicitly fill this value during runtime.
-
-This flag can be used to modify the default value, or to manually enter the path to FFmpeg in case *auto-sub* is unable to locate it.
+path to FFmpeg executable. This will be the binary file for Linux, and `.exe` file for Windows users. For most users, *auto-sub* should be able to implicitly fill this value during runtime. This flag can be used to modify the default value, or to manually enter the path to FFmpeg in case *auto-sub* is unable to locate it.
 
 #### FFprobe
 
 Similar to the `ffmpeg` flag, this flag sets the path to the FFprobe executable. Again, for most users, *auto-sub* should be able to implicitly populate this value during runtime.
 
-This flag can be used to modify the default value, or manually select the path to FFprobe in case *auto-sub* is unable to locate it.
-
 #### Exclude
 
-Explicitly mark out files to be ignored using their names - note that files with [unrecognized extensions](#recognized-extensions) are always ignored.
-
-If the name of a file (inclusive of extension), matches a value present in this list, the file will be ignored by *auto-sub*.
+Explicitly mark out files to be ignored using their names - note that files with [unrecognized extensions](#recognized-extensions) are always ignored. If the name of a file (inclusive of extension), matches a value present in this list, the file will be ignored by *auto-sub*.
 
 #### RExclude
 
-Short for regex-exclude, this flag ignores any file that matches a regular expression. The regex syntax needs to be in accordance with [RE2](https://en.wikipedia.org/wiki/RE2_(software)).
-
-[Here](https://github.com/google/re2/wiki/Syntax) is a simple cheatsheet for RE2 regex syntax
+Short for regex-exclude, this flag ignores any file that matches a regular expression. The regex syntax needs to be in accordance with [RE2](https://en.wikipedia.org/wiki/RE2_(software)). For a simple cheatsheet for RE2 regex syntax, you may want to take a look [here](https://github.com/google/re2/wiki/Syntax).
 
 <br>
 
@@ -367,7 +347,6 @@ Alternatively, you may remove Codecov action from `.github/workflows/testing.yml
 <br>
 
 * [Creating Github Secrets](https://docs.github.com/en/actions/reference/encrypted-secrets)
-
 * [Generating Codecov Token](https://docs.codecov.io/docs/quick-start)
 
 [code-size]: https://img.shields.io/github/languages/code-size/demon-rem/auto-sub?style=for-the-badge
