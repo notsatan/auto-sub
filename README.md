@@ -50,6 +50,7 @@
     - [Test](#test)
     - [Version](#version)
     - [Direct](#direct)
+    - [Summary](#summary)
   - [Miscellaneous Flags](#miscellaneous-flags)
     - [Root](#root)
     - [Language](#language)
@@ -58,6 +59,7 @@
     - [FFprobe](#ffprobe)
     - [Exclude](#exclude)
     - [RExclude](#rexclude)
+    - [Summary](#summary-1)
 - [Advanced Usage](#advanced-usage)
   - [Recognized Extensions](#recognized-extensions)
     - [MediaFiles](#mediafiles)
@@ -73,7 +75,7 @@
 
 Auto-sub is simply a command line tool to batch add subtitles, chapters, attachments to media files using [FFmpeg](http://ffmpeg.org).
 
-The final result will be in a matroska (`.mkv`) container regardless of the original container.
+The final result will be in a matroska (`.mkv`) container containing the original media file, along with subtitles, attachments, chapters, tags, etc.
 
 ## Terminology
 
@@ -81,15 +83,15 @@ This section defines the basic terms used in the rest of the project.
 
 ### Extra file vs Media file
 
-Media file is the central video file to which the subtitles, attachments, chapters, etc. will be attached. Each source directory should contain exactly **one** media file - the program will fail if no media file could be found, or if multiple media files were found!
+Media file is the central video file to which the subtitles, attachments, chapters, etc. will be attached. Each source directory should contain **exactly one** media file - the program will throw an error if no media file is found in a directory, or if multiple media files are found!
 
-On the other hand, *extra file* refers to any other file involved apart from the media file - this could be a file containing subtitles, attachments, chapters, tags, etc.
+On the other hand, *extra file* could refer to any other files present in the source directory apart from the media file - this could be a file containing subtitles, attachments, chapters, tags, etc.
 
 ### Source Directory vs Root Directory
 
-Source directory is a directory containing exactly **one** media file, and *one or more* extra files. At the most basic level, auto-sub acts upon source directories, locating the media file and extra file(s) present in each source directory, and combining them together using FFmpeg.
+Any directory containing exactly **one** media file, and *one or more* extra files is a *source directory*. At the most basic level, auto-sub acts upon source directories, locating the media file and extra file(s) present in each source directory, and merging them to make a single file in a matroska container.
 
-Root directory, refers to a parent directory containing multiple source directories. Remember how a source directory could contain only **one** media file? In order to soft sub multiple media files at once, simply create source directories containing the media file, and extra files - and place all these source directories inside a parent directory. This parent directory becomes the *root directory*.
+Root directory, refers to a parent directory containing multiple source directories. Remember how a source directory could contain only **one** media file? In order to work upon multiple media files at once, place source directories containing media file and extra file(s) inside a parent directory. This parent directory becomes the *root directory*.
 
 As an example;
 ```    
@@ -106,11 +108,9 @@ As an example;
     │   └── tags.xml
 ```
 
-In the example above, \``/home/User/Movies`\` acts as the [*root* directory](#root-directory), this root directory contains two [source directories](#source-directory) inside it; namely, \``Dir 01`\` and \``Dir 02`\`.
+In the example above, \``/home/User/Movies`\` acts as the *root directory*, this root directory contains two *source directories* inside it; namely, \``Dir 01`\` and \``Dir 02`\`. Each of these source directories further contains a media file (`Movie XX.mkv`), a subtitle file, and accompanying chapters and tags.
 
-And each of these source directories further contains a media file (`Movie XX.mkv`), a subtitle file, and accompanying chapters and tags.
-
-**P.S**: The program differentiates (and recognizes) files through their extensions. Head over to [this](#recognized-extensions) section for a list of accepted file extensions.
+**P.S**: Internally, *auto-sub* differentiates (and recognizes) files from their extensions. Head over to [this](#recognized-extensions) section for a list of accepted file extensions.
 
 ### Wrap-up
 
@@ -119,7 +119,6 @@ A simple summary for this section;
  - A source directory should have **atleast one** extra file
  - Any directory containing **exactly one** media file, and **one or more** extra file(s) is a *source directory*
  - The parent directory containing **one or more** source directories is the *root directory*
-
 
 ## Installation
 
@@ -160,7 +159,13 @@ auto-sub --test
 
 If everything is in place, *auto-sub* should be able to list out the versions of FFmpeg and FFprobe installed in your system. The output should look something like;
 
-![Test flag output](./assets/test_flag.png)
+```
+[demon-rem@albedo ~]$ auto-sub --test
+
+FFmpeg version found: n4.3.1
+FFprobe version found: n4.3.1
+
+```
 
 If *auto-sub* is unable to locate either FFmpeg or FFprobe, an error message will appear instead, or you'll be asked to manually enter path to FFmpeg/FFprobe executables. See the section on [miscellaneous flags](#miscellaneous-flags) for more help on this.
 
@@ -187,111 +192,112 @@ Note: While using *auto-sub*, the only input required is the path to the root (o
 
 ## Flags
 
-Flags can help you fine-tune the workings of *auto-sub* to match your requirements, for example, ignoring a particular file, or ignoring any file that meets a regex pattern, and more.
+Flags can help you fine-tune the workings of *auto-sub* to match your needs, for example, ignoring a particular file, or ignoring any file that meets a regex pattern, and more.
 
-This section is a comprehensive list of valid flags for *auto-sub*. Some flags have two different versions, i.e. the normal flag, and a shorthand version - both of these versions can be used interchangably as required.
+This section contains a comprehensive list of valid flags for *auto-sub*, their usage, default values, and expected input. Some flags may have a shorthand version in addition to the normal flag - both of these versions can be used interchangably as required.
 
-Note that **all** of these flags are optional - as such, auto-sub can work perfectly fine even without them!
+Note that **all** of these flags are optional - as such, *auto-sub* can work perfectly fine even without them!
 
 ### Boolean Flags
 
-All boolean flags are disabled by default.
-
-|    Flag   	| Short-hand 	|                     Purpose                    	|
-|:---------:	|------------	|:----------------------------------------------:	|
-|   --log   	|    none    	|        Generate logs for the current run       	|
-|   --test  	|    none    	|        Run test(s) to verify your setup        	|
-| --version 	|     -v     	|      Display current version for auto-sub      	|
-|   --help  	|     -h     	|            Display help for auto-sub           	|
-|  --direct 	|    none    	| Treat the root directory as a source directory 	|
+All boolean flags are disabled by default, using a boolean flag while running *auto-sub* will enable it.
 
 #### Log
 
-Using this flag will enable logging and generate a log report for the current run. The log file will be titled as `[auto-sub] logs.txt` and stored in the current working directory (run `cwd` in Windows, or `pwd` in Linux/Mac to get the working directory)
+Enables logging, generates a log report for the run. Log files will be helpful to get crash reports, and/or file issues for bugs.
+
+The log file will stored in the current working directory, named `[auto-sub] logs.txt` (run `cwd` in Windows, or `pwd` in Linux/Mac to get the working directory)
 
 #### Test
 
-The test flag exists to explicitly test your setup, as such, once you have successfully setup *auto-sub*, this flag does not have any purpose.
+Test flag exists to explicitly test your setup, this includes attempting to locate FFmpeg and FFprobe executables implicitly, and fetching their versions (if found)
 
-*Note*: If the `test` flag is enabled, *auto-sub* will quit once the test completes.
+*Note*: *auto-sub* will quit once the test completes, as a result, as such, the test flag can't be used outside uh, running the initial test.
 
 #### Version
 
-Will simply return the current version of *auto-sub* present in your system.
+Returns the current version of *auto-sub* present in your system.
 
 #### Direct
 
-By default, the path entered is assumed to belong to a root directory (which should internally contain one or more source directories). 
+By default, the path entered is assumed to belong to a root directory (which will internally contain one or more source directories). In case you want to run *auto-sub* for an individual *source directory*, using this flag ensures that the path will be treated as a source directory. 
 
-In case you want to run *auto-sub* for an individual *source directory*, using this flag ensures that the path will be treated as a source directory.
+Also, take a look at [source directory vs root directory](#source-directory-vs-root-directory)
 
-**Further reading**; 
-- [Source Directory vs Root Directory](#source-directory-vs-root-directory)
+<br>
+
+#### Summary
+
+|    Flag   	| Short-hand 	|                   Purpose                  	|
+|:---------:	|------------	|:------------------------------------------:	|
+|   --log   	|      -     	|      Generate logs for the current run     	|
+|   --test  	|      -     	|      Run test(s) to verify your setup      	|
+| --version 	|     -v     	|    Display current version for auto-sub    	|
+|   --help  	|     -h     	|          Display help for auto-sub         	|
+|  --direct 	|      -     	| Treat root directory as a source directory 	|
+|           	|            	|                                            	|
 
 <br>
 
 ### Miscellaneous Flags
 
-Flags that require a value.
-
-|    Flag    	| Short-hand 	| Expected Value  	| Purpose                                          	| Default Value                      	| Required 	|
-|:----------:	|------------	|-----------------	|--------------------------------------------------	|------------------------------------	|:--------:	|
-|   --root   	|    none    	|      String     	| Path to the root directory                       	|                none                	|    No    	|
-| --language 	|     -l     	|      String     	| Language code to be used with subtitles (if any) 	|                "eng"                	|    No    	|
-| --subtitle 	|    none    	|      String     	| Custom title to be used for the subtitle files   	| Original name of the subtitle file 	|    No    	|
-|  --ffmpeg  	|    none    	|      String     	| Path to FFmpeg binary/executable                 	|         Decided at runtime         	|    Yes   	|
-|  --ffprobe 	|    none    	|      String     	| Path to FFprobe binary/executable                	|         Decided at runtime         	|    Yes   	|
-|  --exclude 	|     -E     	| List of strings 	| List of file names to be ignored                 	|                none                	|    No    	|
-| --rexclude 	|    none    	|      String     	| String containing regex pattern to ignore files  	|                none                	|    No    	|
-
+Flags that require a value while being used.
 
 #### Root
 
-Flag to point out the path to *root directory*. Note that path to root directory can also be passed in as an argument. 
+Path to *root directory*. Note that path to root directory can also be passed in as an argument. 
 
-It is recommended to use this flag if you're creating a bash/batch script wrapper around *auto-sub*, passing path to the root directory as an argument *may* be deprecated in the future.
+It is recommended to use this flag if you're creating a bash/batch script wrapper around *auto-sub*, passing path to the root directory as an argument *may* be deprecated/modified in the future.
 
 #### Language
 
-This flag marks the language code for subtitle files. Among other things, this will be used by mediaplayers to select/ignore a subtitle stream depending on user preferences.
-
-The default value for this flag is "eng" (language code for English). 
-
-[Here](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) is a comprehensive list of langauge codes for those who might wish to change this value.
+Dictates the language code for subtitle files. Among other things, this will be used by mediaplayers to select/ignore a subtitle stream based on user preferences. The default value for this flag is "*eng*" (language code for English).[Here](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) is a comprehensive list of langauge codes.
 
 *Note*: The same language code will be applied to all subtitle streams.
 
 #### Subtitle
 
-Sets the title for the subtitle stream. If a value for this flag is not provided, the filename of the subtitle file (minus the file extension) will be set as the title by default.
+Sets the title for the subtitle stream. If a value for this flag is not provided, the filename of the subtitle file (minus the file extension) will be used by default.
 
-*Note*: The same title will be applied to all subtitle streams
+*Note*: The same title will be applied to all subtitle streams, in every source directory.
 
 #### FFmpeg
 
-Flag to explicitly feed the path to FFmpeg executable. This will be the binary file for Linux, and `.exe` file for Windows users.
+path to FFmpeg executable. This will be the binary file for Linux, and `.exe` file for Windows users. For most users, *auto-sub* should be able to implicitly fill this value during runtime.
 
-For most users, *auto-sub* should be able to implicitly fill this value during runtime.
+This flag can be used to modify the default value, or to manually enter the path to FFmpeg in case *auto-sub* is unable to locate it.
 
 #### FFprobe
 
-Similar to the `ffmpeg` flag, this flag sets the path to the FFprobe executable. 
+Similar to the `ffmpeg` flag, this flag sets the path to the FFprobe executable. Again, for most users, *auto-sub* should be able to implicitly populate this value during runtime.
 
-Again, for most users, *auto-sub* should be able to implicitly populate this value during runtime.
+This flag can be used to modify the default value, or manually select the path to FFprobe in case *auto-sub* is unable to locate it.
 
 #### Exclude
 
-This flag allows you to explicitly mark out files to be ignored using their names - note that files with [unrecognized extensions](#recognized-extensions) are always ignored.
+Explicitly mark out files to be ignored using their names - note that files with [unrecognized extensions](#recognized-extensions) are always ignored.
 
 If the name of a file (inclusive of extension), matches a value present in this list, the file will be ignored by *auto-sub*.
 
 #### RExclude
 
-Short for regex-exclude, this flag ignores any file that matches a regular expression.
-
-Note: The regex syntax needs to be in accordance with [RE2](https://en.wikipedia.org/wiki/RE2_(software)). 
+Short for regex-exclude, this flag ignores any file that matches a regular expression. The regex syntax needs to be in accordance with [RE2](https://en.wikipedia.org/wiki/RE2_(software)).
 
 [Here](https://github.com/google/re2/wiki/Syntax) is a simple cheatsheet for RE2 regex syntax
+
+<br>
+
+#### Summary
+
+| Flag       	| Short-hand 	| Expected Value  	| Purpose                                          	| Default Value     	| Required 	|
+|------------	|------------	|-----------------	|--------------------------------------------------	|-------------------	|----------	|
+| --root     	| none       	| String          	| Path to the root directory                       	| -                 	| No       	|
+| --language 	| -l         	| String          	| Language code to be used with subtitles (if any) 	| "eng"             	| No       	|
+| --subtitle 	| none       	| String          	| Custom title to be used for the subtitle files   	| -                 	| No       	|
+| --ffmpeg   	| none       	| String          	| Path to FFmpeg binary/executable                 	| Runtime Dependent 	| Yes      	|
+| --ffprobe  	| none       	| String          	| Path to FFprobe binary/executable                	| Runtime Dependent 	| Yes      	|
+| --exclude  	| -E         	| List of strings 	| List of file names to be ignored                 	| -                 	| No       	|
+| --rexclude 	| none       	| String          	| String containing regex pattern to ignore files  	| -                 	| No       	|
 
 ## Advanced Usage
 
@@ -361,7 +367,7 @@ Alternatively, you may remove Codecov action from `.github/workflows/testing.yml
 <br>
 
 * [Creating Github Secrets](https://docs.github.com/en/actions/reference/encrypted-secrets)
-<br>
+
 * [Generating Codecov Token](https://docs.codecov.io/docs/quick-start)
 
 [code-size]: https://img.shields.io/github/languages/code-size/demon-rem/auto-sub?style=for-the-badge
