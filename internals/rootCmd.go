@@ -59,9 +59,8 @@ The subtitle stream language/title can be modified using flags
 		invalid.
 	*/
 	PreRunE: func(cmd *cobra.Command, args []string) error {
-		// Setting up the output stream if not set already - this check will be
-		// useful when multiple copies of the root command are being created,
-		// especially for tests.
+		// Setting up the output stream, the check will be useful when the main method is
+		// being called multiple times (during tests)
 		if commons.GetOutput() == nil {
 			commons.SetOutput(cmd.OutOrStderr())
 		}

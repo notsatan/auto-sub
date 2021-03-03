@@ -14,7 +14,7 @@
   <h3 align="center">auto-sub</h3>
 
   <p align="center">
-    A command-line utility to batch-add subtitles to media files
+    A command-line utility to batch-add subtitles, attachments, chapters and more to media files
     <br><br>
     <a href="https://github.com/demon-rem/auto-sub/"><strong>Explore the docs »</strong></a>
     <br />
@@ -37,15 +37,27 @@
 - [Terminology](#terminology)
   - [Extra file vs Media file](#extra-file-vs-media-file)
   - [Source Directory vs Root Directory](#source-directory-vs-root-directory)
+  - [Wrap-up](#wrap-up)
 - [Installation](#installation)
   - [Compiling from source](#compiling-from-source)
 - [Setup](#setup)
   - [Advanced Setup](#advanced-setup)
 - [Documentation](#documentation)
     - [Syntax](#syntax)
-  - [Flags](#flags)
+- [Flags](#flags)
   - [Boolean Flags](#boolean-flags)
+    - [Log](#log)
+    - [Test](#test)
+    - [Version](#version)
+    - [Direct](#direct)
   - [Miscellaneous Flags](#miscellaneous-flags)
+    - [Root](#root)
+    - [Language](#language)
+    - [Subtitle](#subtitle)
+    - [FFmpeg](#ffmpeg)
+    - [FFprobe](#ffprobe)
+    - [Exclude](#exclude)
+    - [RExclude](#rexclude)
 - [Advanced Usage](#advanced-usage)
   - [Recognized Extensions](#recognized-extensions)
     - [MediaFiles](#mediafiles)
@@ -59,9 +71,9 @@
 
 ## About the project
 
-A command line tool to batch add subtitles, chapters, attachments to media files using [FFmpeg](http://ffmpeg.org).
+Auto-sub is simply a command line tool to batch add subtitles, chapters, attachments to media files using [FFmpeg](http://ffmpeg.org).
 
-The final result will be present inside a matroska (`.mkv`) container.
+The final result will be in a matroska (`.mkv`) container regardless of the original container.
 
 ## Terminology
 
@@ -100,9 +112,18 @@ And each of these source directories further contains a media file (`Movie XX.mk
 
 **P.S**: The program differentiates (and recognizes) files through their extensions. Head over to [this](#recognized-extensions) section for a list of accepted file extensions.
 
+### Wrap-up
+
+A simple summary for this section;
+ - A source directory should have **exactly one** media file
+ - A source directory should have **atleast one** extra file
+ - Any directory containing **exactly one** media file, and **one or more** extra file(s) is a *source directory*
+ - The parent directory containing **one or more** source directories is the *root directory*
+
+
 ## Installation
 
-`Auto-sub` is a Go program, it can be installed as a simple binary or an executable file.
+`Auto-Sub` is a Go program, it can be used directly as a portable binary or executable file.
 
 - [Download](https://github.com/demon-rem/auto-sub/releases) the relevant binary for your system.
 - Extract `auto-sub` or `auto-sub.exe` file from the archive
@@ -112,7 +133,7 @@ Check out the [documentation](#documentation) for more info on how to use auto-s
 
 ### Compiling from source
 
-Note: These instructions are to generate an executable from the source-code by yourself. If you want an easier solution, check out the [installation section](#installation) to download a pre-compiled executable.
+*Note: These instructions are to generate an executable from the source-code by yourself. If you want an easier solution, follow the instructions above to download a pre-compiled executable.*
 
 Make sure you have [Go](https://golang.org/) installed. [Download Go](https://golang.org/dl/) for your system if required.
 
@@ -124,15 +145,15 @@ go build
 ./auto-sub -v
 ```
 
-This will leave you with a checked out version of `auto-sub` that you can 
+The steps above will generate a binary/executable file named `auto-sub` or `auto-sub.exe` by default.
 
 ## Setup
 
-Auto-sub uses FFmpeg in the backend to modify the media files. Make sure you have FFmpeg and FFprobe installed in your system in order to use auto-sub.
+Auto-sub uses FFmpeg in the backend. Make sure you have FFmpeg and FFprobe installed before using *auto-sub*
 
-Get pre-complied binaries and installation instructions for FFmpeg and FFprobe [here](https://ffmpeg.org/download.html)
+To install FFmpeg or FFprobe, follow the instructions listed [here](https://ffmpeg.org/download.html)
 
-Once done, move over to testing your setup;
+Once done, move over to testing your setup with *auto-sub*;
 ```
 auto-sub --test
 ```
@@ -141,7 +162,7 @@ If everything is in place, *auto-sub* should be able to list out the versions of
 
 ![Test flag output](./assets/test_flag.png)
 
-If *auto-sub* is unable to locate either FFmpeg or FFprobe, an error message will appear instead. In this case, you can manually point out the path to FFmpeg/FFprobe executables to *auto-sub*. See the section on [miscellaneous flags](#miscellaneous-flags) for more help on this
+If *auto-sub* is unable to locate either FFmpeg or FFprobe, an error message will appear instead, or you'll be asked to manually enter path to FFmpeg/FFprobe executables. See the section on [miscellaneous flags](#miscellaneous-flags) for more help on this.
 
 ### Advanced Setup
 
@@ -162,11 +183,11 @@ Auto-sub is simply a wrapper over FFmpeg, its syntax is like this;
 auto-sub ["/path/to/root"] [flags]
 ```
 
-Note: In the command, the only part required is the path to the root (or source) directory. This path can be provided as an argument, **or** through a the [root flag](#miscellaneous-flags).
+Note: While using *auto-sub*, the only input required is the path to the root (or source) directory. This path can be provided as an argument, **or** through a the [root flag](#miscellaneous-flags).
 
-### Flags
+## Flags
 
-Flags can help you fine-tune the workings of *auto-sub* to match your requirements, for example as ignoring a particular file, or ignoring any file that meets a regex pattern, and more.
+Flags can help you fine-tune the workings of *auto-sub* to match your requirements, for example, ignoring a particular file, or ignoring any file that meets a regex pattern, and more.
 
 This section is a comprehensive list of valid flags for *auto-sub*. Some flags have two different versions, i.e. the normal flag, and a shorthand version - both of these versions can be used interchangably as required.
 
@@ -183,6 +204,29 @@ All boolean flags are disabled by default.
 | --version 	|     -v     	|      Display current version for auto-sub      	|
 |   --help  	|     -h     	|            Display help for auto-sub           	|
 |  --direct 	|    none    	| Treat the root directory as a source directory 	|
+
+#### Log
+
+Using this flag will enable logging and generate a log report for the current run. The log file will be titled as `[auto-sub] logs.txt` and stored in the current working directory (run `cwd` in Windows, or `pwd` in Linux/Mac to get the working directory)
+
+#### Test
+
+The test flag exists to explicitly test your setup, as such, once you have successfully setup *auto-sub*, this flag does not have any purpose.
+
+*Note*: If the `test` flag is enabled, *auto-sub* will quit once the test completes.
+
+#### Version
+
+Will simply return the current version of *auto-sub* present in your system.
+
+#### Direct
+
+By default, the path entered is assumed to belong to a root directory (which should internally contain one or more source directories). 
+
+In case you want to run *auto-sub* for an individual *source directory*, using this flag ensures that the path will be treated as a source directory.
+
+**Further reading**; 
+- [Source Directory vs Root Directory](#source-directory-vs-root-directory)
 
 <br>
 
@@ -201,8 +245,53 @@ Flags that require a value.
 | --rexclude 	|    none    	|      String     	| String containing regex pattern to ignore files  	|                none                	|    No    	|
 
 
-***Important***
-For most users, the flags `--ffmpeg` and `--ffprobe` will be filled during runtime. In case you don't have FFmpeg *or* FFprobe installed, or *auto-sub* was unable to locate them, you'll be asked to manually feed the value to their executables.
+#### Root
+
+Flag to point out the path to *root directory*. Note that path to root directory can also be passed in as an argument. 
+
+It is recommended to use this flag if you're creating a bash/batch script wrapper around *auto-sub*, passing path to the root directory as an argument *may* be deprecated in the future.
+
+#### Language
+
+This flag marks the language code for subtitle files. Among other things, this will be used by mediaplayers to select/ignore a subtitle stream depending on user preferences.
+
+The default value for this flag is "eng" (language code for English). 
+
+[Here](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) is a comprehensive list of langauge codes for those who might wish to change this value.
+
+*Note*: The same language code will be applied to all subtitle streams.
+
+#### Subtitle
+
+Sets the title for the subtitle stream. If a value for this flag is not provided, the filename of the subtitle file (minus the file extension) will be set as the title by default.
+
+*Note*: The same title will be applied to all subtitle streams
+
+#### FFmpeg
+
+Flag to explicitly feed the path to FFmpeg executable. This will be the binary file for Linux, and `.exe` file for Windows users.
+
+For most users, *auto-sub* should be able to implicitly fill this value during runtime.
+
+#### FFprobe
+
+Similar to the `ffmpeg` flag, this flag sets the path to the FFprobe executable. 
+
+Again, for most users, *auto-sub* should be able to implicitly populate this value during runtime.
+
+#### Exclude
+
+This flag allows you to explicitly mark out files to be ignored using their names - note that files with [unrecognized extensions](#recognized-extensions) are always ignored.
+
+If the name of a file (inclusive of extension), matches a value present in this list, the file will be ignored by *auto-sub*.
+
+#### RExclude
+
+Short for regex-exclude, this flag ignores any file that matches a regular expression.
+
+Note: The regex syntax needs to be in accordance with [RE2](https://en.wikipedia.org/wiki/RE2_(software)). 
+
+[Here](https://github.com/google/re2/wiki/Syntax) is a simple cheatsheet for RE2 regex syntax
 
 ## Advanced Usage
 
