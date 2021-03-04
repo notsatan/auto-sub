@@ -9,7 +9,7 @@ import (
 )
 
 // Name of the text file containing logs
-const logFile = "logs.txt"
+const logFile = "[auto-sub] logs.txt"
 
 // Entry point when the script is run - sets up a logger, and hands over the flow
 // of control to the central command.
