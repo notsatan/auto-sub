@@ -33,6 +33,8 @@
 <br>
 
 <!-- TABLE OF CONTENTS -->
+## Index
+- [Index](#index)
 - [About the project](#about-the-project)
 - [Terminology](#terminology)
   - [Extra file vs Media file](#extra-file-vs-media-file)
@@ -69,8 +71,9 @@
 - [Roadmap](#roadmap)
 - [Forks](#forks)
   - [Deploying a fork](#deploying-a-fork)
-- [Acknowledgements](#acknowledgements)
+- [Acknowledgments](#acknowledgments)
 - [License](#license)
+- [Just some fun](#just-some-fun)
 
 <br>
 
@@ -88,15 +91,15 @@ This section defines the basic terms used in the rest of the project.
 
 ### Extra file vs Media file
 
-Media file is the central video file to which the subtitles, attachments, chapters, etc. will be attached. Each source directory should contain **exactly one** media file - the program will throw an error if no media file is found in a directory, or if multiple media files are found!
+Media file is the central video file to which the subtitles, attachments, chapters will be attached. Each source directory should contain **exactly one** media file - the program will throw an error if no media file is found in a directory, or if multiple media files are found!
 
 On the other hand, *extra file* could refer to any other files present in the source directory apart from the media file - this could be a file containing subtitles, attachments, chapters, tags, etc.
 
 ### Source Directory vs Root Directory
 
-Any directory containing exactly **one** media file, and *one or more* extra files is a *source directory*. At the most basic level, auto-sub acts upon source directories, locating the media file and extra file(s) present in each source directory, and merging them to make a single file in a matroska container.
+Any directory containing exactly **one** media file, and *one or more* extra files is a *source directory*. At the most basic level, *auto-sub* acts upon source directories, locating the media file and extra file(s) present in each source directory, and merging them to make a single file in a matroska container.
 
-Root directory, refers to a parent directory containing multiple source directories. Remember how a source directory could contain only **one** media file? In order to work upon multiple media files at once, place source directories containing media file and extra file(s) inside a parent directory. This parent directory becomes the *root directory*.
+Root directory, refers to a parent directory containing multiple source directories. Remember how a source directory can have only **one** media file? In order to work upon multiple media files, make a root directory that contains multiple source directories, with each source directory containing a media file and extra file(s). This parent directory becomes the *root directory*.
 
 As an example;
 ```    
@@ -120,7 +123,7 @@ In the example above, \``/home/User/Movies`\` acts as the *root directory*, this
 ### Wrap-up
 
 A simple summary for this section;
- - A source directory should have **exactly one** media file and **atleast one** extra file
+ - A source directory should have **exactly one** media file and **at least one** extra file
  - Any directory containing **exactly one** media file, and **one or more** extra file(s) is a *source directory*
  - The parent directory containing **one or more** source directories is the *root directory*
 
@@ -152,7 +155,7 @@ The steps above will generate a binary/executable file named `auto-sub` or `auto
 
 ## Setup
 
-Auto-sub uses FFmpeg in the backend. Make sure you have FFmpeg and FFprobe installed before using *auto-sub*. To install FFmpeg or FFprobe, follow the instructions listed [here](https://ffmpeg.org/download.html)
+Auto-sub uses FFmpeg in the backend. Make sure you have FFmpeg and FFprobe installed before using *auto-sub*. To install FFmpeg or FFprobe, follow the instructions listed [here](https://ffmpeg.org/download.html).
 
 Once done, move over to testing your setup with *auto-sub*;
 ```
@@ -199,13 +202,13 @@ Note: While using *auto-sub*, the only input required is the path to the root (o
 
 Flags can help you fine-tune the workings of *auto-sub* to match your needs, for example, [ignoring a particular file](#exclude), or [ignoring any file that meets a regex pattern](#rexclude), and more.
 
-This section contains a comprehensive list of valid flags for *auto-sub*, their usage, default values, and expected input. Some flags may have a shorthand version in addition to the normal flag - both of these versions can be used interchangably.
+This section contains a comprehensive list of valid flags for *auto-sub*, their usage, default values, and expected input. Some flags may have a shorthand version in addition to the normal flag - both of these versions can be used interchangeably. Head over to the [examples section](#examples) to take a look at how to use these flags.
 
 Note that **all** of these flags are optional - as such, *auto-sub* can work perfectly fine even without them!
 
 ### Boolean Flags
 
-All boolean flags are disabled by default, using a boolean flag while running *auto-sub* will enable it.
+All boolean flags are disabled by default, using a boolean flag in the command while running *auto-sub* will enable it.
 
 #### Log
 
@@ -239,13 +242,13 @@ Unlike the boolean flags that can be simply added to the command, these flags re
 
 #### Root
 
-Path to *root directory*. Note that path to root directory can also be passed in as an argument. Passing path to the root directory as an argument *may* be deprecated/modified in the future, if you're making a bash/batch script wrapper around *auto-sub*, you may want to use this flag to mark the root directory instead of the argument.
+Path to *root directory*. Note that path to root directory can also be passed in as an argument. Passing path to the root directory as an argument *may* be deprecated/modified in the future, if you're making a bash/batch script wrapper around *auto-sub*, you may want to use this flag instead of the argument.
 
 Note: This flag has higher precedence than the path provided through argument. As such, if the path to root directory is passed in as an argument, as well as through this flag, the value obtained through this flag will be used, and the argument will be discarded.
 
 #### Language
 
-Dictates the language code for subtitle files. Among other things, this will be used by mediaplayers to select/ignore a subtitle stream based on user preferences. The default value for this flag is "*eng*" (language code for English). [Here](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) is a comprehensive list of langauge codes.
+Dictates the language code for subtitle files. Among other things, this will be used by media players to select/ignore a subtitle stream based on user preferences. The default value for this flag is "*eng*" (language code for English). [Here](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) is a comprehensive list of language codes.
 
 *Note*: The same language code will be applied to all subtitle streams.
 
@@ -253,7 +256,7 @@ Dictates the language code for subtitle files. Among other things, this will be 
 
 Sets the title for the subtitle stream. If a value for this flag is not provided, the filename of the subtitle file (minus the file extension) will be used by default.
 
-*Note*: The same title will be applied to all subtitle streams, in every source directory.
+*Note*: The same title will be applied to all subtitle streams, for all source directories.
 
 #### FFmpeg
 
@@ -271,7 +274,7 @@ Note: Multiple ignore rules separated by a comma can be added to this flag. This
 
 #### RExclude
 
-Short for regex-exclude, this flag ignores any file that matches a regular expression. The regex syntax needs to be in accordance with [RE2](https://en.wikipedia.org/wiki/RE2_(software)). For a simple cheatsheet for RE2 regex syntax, you may want to take a look [here](https://github.com/google/re2/wiki/Syntax).
+Short for regex-Exclude, this flag ignores any file that matches a regular expression. The regex syntax needs to be in accordance with [RE2](https://en.wikipedia.org/wiki/RE2_(software)). For a simple cheatsheet for RE2 regex syntax, you may want to take a look [here](https://github.com/google/re2/wiki/Syntax).
 
 #### Summary
 
@@ -282,7 +285,7 @@ Short for regex-exclude, this flag ignores any file that matches a regular expre
 | --subtitle 	| none       	| String          	| Custom title to be used for the subtitle files   	| -                 	| No       	|
 | --ffmpeg   	| none       	| String          	| Path to FFmpeg binary/executable                 	| Runtime Dependent 	| Yes      	|
 | --ffprobe  	| none       	| String          	| Path to FFprobe binary/executable                	| Runtime Dependent 	| Yes      	|
-| --exclude  	| -E         	| List of strings 	| List of file names to be ignored                 	| -                 	| No       	|
+| --Exclude  	| -E         	| List of strings 	| List of file names to be ignored                 	| -                 	| No       	|
 | --rexclude 	| none       	| String          	| String containing regex pattern to ignore files  	| -                 	| No       	|
 
 <br>
@@ -291,9 +294,9 @@ Short for regex-exclude, this flag ignores any file that matches a regular expre
 
 ### Recognized Extensions
 
-Internally, auto-sub differentiates between file types using their extensions. This section contains a comprehensive list of file extensions recognized by auto-sub, and the category these files are recongized as.
+Internally, auto-sub differentiates between file types using their extensions. This section contains a comprehensive list of file extensions recognized by auto-sub, and the category these files are recognized as.
 
-Files with unrecognized extensions will be *ignored* by auto-sub. Alternatively, select files can be delibrately ignored due to ignore rules (ignore rules can be set using [flags](#miscellaneous-flags))
+Files with unrecognized extensions will be *ignored* by auto-sub. Alternatively, select files can be deliberately ignored due to ignore rules (ignore rules can be set using [flags](#miscellaneous-flags))
 
 #### MediaFiles
 Supported file extensions;
@@ -329,7 +332,7 @@ Some example commands to demonstrate how to use the flags/arguments with *auto-s
 
  - Testing the setup with custom FFmpeg and FFprobe path(s)
 
-Uses [FFmpeg Flag](#ffmpeg) and [FFprobe Flag](#ffprobe). Note that the path to root directory isn't required with the test flag.
+Uses [ffmpeg flag](#ffmpeg) and [ffprobe flag](#ffprobe). Note that the path to root directory isn't required with the test flag.
 ```bash
 auto-sub --test --ffmpeg="/path/to/ffmpeg" --ffprobe="/path/to/ffprobe"
 ```
@@ -343,7 +346,7 @@ auto-sub "/path/to/root/directory" --log
 
  - Excluding any file with `.mp4` extension
  
-Uses [root flag](#root) and [regex-exclude flag](#rexclude). Note that the path to root directory could also have been provided as an argument instead of using the root flag.
+Uses [root flag](#root) and [regex-Exclude flag](#rexclude). The path to root directory can also be provided as an argument instead of using the root flag.
 
 ```bash
 auto-sub --root="/path/to/root/directory" --rexclude=".*\.mp4$"
@@ -351,17 +354,25 @@ auto-sub --root="/path/to/root/directory" --rexclude=".*\.mp4$"
 
  - Excluding specific files
 
-Uses the [exclude flag](#exclude). Note that only files with complete matches (inclusive of extensions) will be ignored, i.e. adding an ignore rule for "*word*" will not result in *auto-sub* ignoring a file named "*word.txt*". The exclude flag can be used multiple times, all the ignore rules will be added together.
+Uses the [Exclude flag](#exclude). Note that only files with complete matches (inclusive of extensions) will be ignored, i.e. adding an ignore rule for "*word*" will not result in *auto-sub* ignoring a file named "*word.txt*". The Exclude flag can be used multiple times, all the ignore rules will be added together.
 ```bash
-auto-sub --root="/path/to/root" --exclude="test, test.mp4" --exclude="another ignore rule.txt" --exclude="source.mkv"
+auto-sub --root="/path/to/root" --Exclude="test, test.mp4" --Exclude="another ignore rule.txt" --Exclude="source.mkv"
 ```
 
  - Working on a source directory instead of root directory
 
-Using the [direct flag](#direct) ensures that *auto-sub* identifies the path to belong to a source directory
+Using the [direct flag](#direct) ensures that *auto-sub* identifies the path to lead to a source directory (instead of a root directory)
 ```bash
 auto-sub --root="/path/to/source/directory" --direct
 ```
+
+ - Passing paths through the argument and flag
+
+```bash
+auto-sub "/path/to/dir01" --root="/path/to/dir02"
+```
+
+The path obtained using the flag has a higher prefrence, as such, the path used in this case will be "`path/to/dir02`"
 
 <br>
 
@@ -369,16 +380,16 @@ auto-sub --root="/path/to/source/directory" --direct
 
 The main aim for this project is to act as a wrapper over FFmpeg - allowing users to soft sub (even multiple) files at once, without having to trudge through pages of documentation to learn the basics of FFmpeg.
 
-A large part of this functionality is already present in the program, nevertheless, this section attempts to list out features that *may* be added in the future. Note that none of these features are intended to break/modify the existing functionality of auto-sub, rather add to what already exists, and simplify where possible.
+A large part of this functionality is already present in *auto-sub*, nevertheless, this section attempts to list out features that *may* be added in the future. Note that none of these features are intended to break/modify the existing functionality of auto-sub, rather add to what already exists, and simplify where possible.
 
-***A list of possible improvements;***
+***List of possible improvements;***
  - Silent mode
  - Interactive mode
  - Config file (no gurantees)
  - Force flag (overwrite existing files - if any)
  - Custom naming for output files
 
-Have a suggestion/feature in your mind that ins't listed here? Feel free to [file an issue](https://github.com/demon-rem/auto-sub/issues) :)
+Have a suggestion/feature that isn't listed here? Feel free to [file an issue](https://github.com/demon-rem/auto-sub/issues) :)
 
 <br>
 
@@ -401,7 +412,7 @@ Alternatively, you may remove Codecov action from `.github/workflows/testing.yml
 
 <br>
 
-## Acknowledgements
+## Acknowledgments
 
 A list of resources, repositories, blogs, articles that I used while creating this project. Note that this isn't a comprehensive list by any measure, 
 
@@ -416,6 +427,11 @@ A list of resources, repositories, blogs, articles that I used while creating th
 
 Distributed under the MIT License. See [LICENSE](./LICENSE) for details.
 
+<br>
+
+## Just some fun
+
+![Meme](https://github.com/demon-rem/res/blob/master/memes/20022020.jpg?raw=true)
 
 [code-size]: https://img.shields.io/github/languages/code-size/demon-rem/auto-sub?style=for-the-badge
 [language]: https://img.shields.io/github/languages/top/demon-rem/auto-sub?style=for-the-badge
