@@ -65,6 +65,7 @@
     - [Subtitles](#subtitles)
     - [Attachments](#attachments)
     - [Chapters](#chapters)
+  - [Examples](#examples)
 - [Roadmap](#roadmap)
 - [Forks](#forks)
   - [Deploying a fork](#deploying-a-fork)
@@ -266,6 +267,8 @@ Similar to the [ffmpeg flag](#ffmpeg), this flag sets the path to the FFprobe ex
 
 Explicitly mark out files to be ignored using their names - note that files with [unrecognized extensions](#recognized-extensions) are always ignored. If the name of a file (inclusive of extension), matches a value present in this list, the file will be ignored by *auto-sub*.
 
+Note: Multiple ignore rules separated by a comma can be added to this flag. This flag can also be used multiple times in the same command.
+
 #### RExclude
 
 Short for regex-exclude, this flag ignores any file that matches a regular expression. The regex syntax needs to be in accordance with [RE2](https://en.wikipedia.org/wiki/RE2_(software)). For a simple cheatsheet for RE2 regex syntax, you may want to take a look [here](https://github.com/google/re2/wiki/Syntax).
@@ -319,6 +322,46 @@ Supported file extensions;
 
 Supported file extensions;
  - `.xml`
+
+### Examples
+
+Some example commands to demonstrate how to use the flags/arguments with *auto-sub*
+
+ - Testing the setup with custom FFmpeg and FFprobe path(s)
+
+Uses [FFmpeg Flag](#ffmpeg) and [FFprobe Flag](#ffprobe). Note that the path to root directory isn't required with the test flag.
+```bash
+auto-sub --test --ffmpeg="/path/to/ffmpeg" --ffprobe="/path/to/ffprobe"
+```
+
+ - Running *auto-sub* with logging enabled
+
+Uses [log flag](#log). Once the command completes execution, use `cwd` or `pwd` to get the path to directory containing the log file
+```bash
+auto-sub "/path/to/root/directory" --log
+```
+
+ - Excluding any file with `.mp4` extension
+ 
+Uses [root flag](#root) and [regex-exclude flag](#rexclude). Note that the path to root directory could also have been provided as an argument instead of using the root flag.
+
+```bash
+auto-sub --root="/path/to/root/directory" --rexclude=".*\.mp4$"
+```
+
+ - Excluding specific files
+
+Uses the [exclude flag](#exclude). Note that only files with complete matches (inclusive of extensions) will be ignored, i.e. adding an ignore rule for "*word*" will not result in *auto-sub* ignoring a file named "*word.txt*". The exclude flag can be used multiple times, all the ignore rules will be added together.
+```bash
+auto-sub --root="/path/to/root" --exclude="test, test.mp4" --exclude="another ignore rule.txt" --exclude="source.mkv"
+```
+
+ - Working on a source directory instead of root directory
+
+Using the [direct flag](#direct) ensures that *auto-sub* identifies the path to belong to a source directory
+```bash
+auto-sub --root="/path/to/source/directory" --direct
+```
 
 <br>
 
