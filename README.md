@@ -41,7 +41,6 @@
 - [Installation](#installation)
   - [Compiling from source](#compiling-from-source)
 - [Setup](#setup)
-  - [Advanced Setup](#advanced-setup)
 - [Documentation](#documentation)
     - [Syntax](#syntax)
 - [Flags](#flags)
@@ -66,10 +65,11 @@
     - [Subtitles](#subtitles)
     - [Attachments](#attachments)
     - [Chapters](#chapters)
-- [License](#license)
 - [Roadmap](#roadmap)
 - [Forks](#forks)
   - [Deploying a fork](#deploying-a-fork)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
 <br>
 
@@ -168,9 +168,9 @@ FFprobe version found: n4.3.1
 
 ```
 
-If *auto-sub* is unable to locate either FFmpeg or FFprobe, an error message will appear instead, or you'll be asked to manually enter path to FFmpeg/FFprobe executables. See the section on [miscellaneous flags](#miscellaneous-flags) for more help on this.
+If *auto-sub* is unable to locate either FFmpeg or FFprobe, an error message will appear instead, or you'll be asked to manually enter path to FFmpeg/FFprobe executables. See the section on [miscellaneous flags](#ffmpeg) to manually set the path to FFmpeg/FFprobe executables.
 
-### Advanced Setup
+**Advanced Setup**
 
 This section explains how to setup `auto-sub` to run it directly from the command prompt (without having to change directories).
 
@@ -190,13 +190,13 @@ Auto-sub is simply a wrapper over FFmpeg, its syntax is like this;
 auto-sub ["/path/to/root"] [flags]
 ```
 
-Note: While using *auto-sub*, the only input required is the path to the root (or source) directory. This path can be provided as an argument, **or** through a the [root flag](#miscellaneous-flags).
+Note: While using *auto-sub*, the only input required is the path to the root (or source) directory. This path can be provided as an argument, **or** through the [root flag](#root).
 
 <br>
 
 ## Flags
 
-Flags can help you fine-tune the workings of *auto-sub* to match your needs, for example, ignoring a particular file, or ignoring any file that meets a regex pattern, and more.
+Flags can help you fine-tune the workings of *auto-sub* to match your needs, for example, [ignoring a particular file](#exclude), or [ignoring any file that meets a regex pattern](#rexclude), and more.
 
 This section contains a comprehensive list of valid flags for *auto-sub*, their usage, default values, and expected input. Some flags may have a shorthand version in addition to the normal flag - both of these versions can be used interchangably.
 
@@ -208,7 +208,7 @@ All boolean flags are disabled by default, using a boolean flag while running *a
 
 #### Log
 
-Enables logging, generates a log report for the run. Log files will be helpful to get crash reports, and/or filing an issue for a bug. The log file will stored in the current working directory, named `[auto-sub] logs.txt` (run `cwd` in Windows, or `pwd` in Linux/Mac to get the working directory)
+Enables logging, generates a log report for the run. Log files will be helpful to get crash reports, and/or filing an issue for a bug. The log file will be stored in the current working directory, named "`[auto-sub] logs.txt`" (run `cwd` in Windows, or `pwd` in Linux/Mac to get the working directory)
 
 #### Test
 
@@ -234,13 +234,13 @@ By default, the path entered is assumed to belong to a root directory (which wil
 
 ### Miscellaneous Flags
 
-Flags that require a value
+Unlike the boolean flags that can be simply added to the command, these flags require a value. Do note that *auto-sub* may forcibly stop if the value entered through these flags is invalid/unexpected.
 
 #### Root
 
 Path to *root directory*. Note that path to root directory can also be passed in as an argument. Passing path to the root directory as an argument *may* be deprecated/modified in the future, if you're making a bash/batch script wrapper around *auto-sub*, you may want to use this flag to mark the root directory instead of the argument.
 
-Note: This flag has a higher precedence than the argument, as such, if the path to root directory is passed in as an argument as well as through the flag, then the value obtained through the flag will be used as the root directory.
+Note: This flag has higher precedence than the path provided through argument. As such, if the path to root directory is passed in as an argument, as well as through this flag, the value obtained through this flag will be used, and the argument will be discarded.
 
 #### Language
 
@@ -260,7 +260,7 @@ Path to FFmpeg executable. This will be a binary file for Linux, and `.exe` file
 
 #### FFprobe
 
-Similar to the [ffmpeg](#ffmpeg) flag, this flag sets the path to the FFprobe executable. Again, for most users, *auto-sub* should be able to implicitly populate this value during runtime.
+Similar to the [ffmpeg flag](#ffmpeg), this flag sets the path to the FFprobe executable. Again, for most users, *auto-sub* should be able to implicitly populate this value during runtime.
 
 #### Exclude
 
@@ -322,12 +322,6 @@ Supported file extensions;
 
 <br>
 
-## License
-
-Distributed under the MIT License. See [LICENSE](./LICENSE) for details.
-
-<br>
-
 ## Roadmap
 
 The main aim for this project is to act as a wrapper over FFmpeg - allowing users to soft sub (even multiple) files at once, without having to trudge through pages of documentation to learn the basics of FFmpeg.
@@ -341,13 +335,13 @@ A large part of this functionality is already present in the program, neverthele
  - Force flag (overwrite existing files - if any)
  - Custom naming for output files
 
+Have a suggestion/feature in your mind that ins't listed here? Feel free to [file an issue](https://github.com/demon-rem/auto-sub/issues) :)
+
 <br>
 
 ## Forks
 
-Custom forks of this project are **not** supported. While anyone is free to fork the project, issues pertaining to custom forks will not be supported - essentially, once you fork the project, you are on your own.
-
-Have a suggestion/feature in your mind that ins't listed here? Feel free to [file an issue](https://github.com/demon-rem/auto-sub/issues) :)
+Custom forks of this project are **not** supported. While anyone is free to fork the project, issues pertaining to custom forks will not be supported on this repository - essentially, once you fork the project, you are on your own.
 
 ### Deploying a fork
 
@@ -357,8 +351,28 @@ Alternatively, you may remove Codecov action from `.github/workflows/testing.yml
 
 <br>
 
+**Further Reading;**
 * [Creating Github Secrets](https://docs.github.com/en/actions/reference/encrypted-secrets)
 * [Generating Codecov Token](https://docs.codecov.io/docs/quick-start)
+
+
+<br>
+
+## Acknowledgements
+
+A list of resources, repositories, blogs, articles that I used while creating this project. Note that this isn't a comprehensive list by any measure, 
+
+ - [CLIG](https://clig.dev/): A guide elaborating principles to design/develop command-line based applications
+ - [Goland](https://golang.org/doc/): Official documentation for Go
+ - [FFmpeg Project](https://ffmpeg.org/ffmpeg.html): Duh!
+ - [Cobra](https://cobra.dev/): The main framework used to design the CLI interface
+
+<br>
+
+## License
+
+Distributed under the MIT License. See [LICENSE](./LICENSE) for details.
+
 
 [code-size]: https://img.shields.io/github/languages/code-size/demon-rem/auto-sub?style=for-the-badge
 [language]: https://img.shields.io/github/languages/top/demon-rem/auto-sub?style=for-the-badge
