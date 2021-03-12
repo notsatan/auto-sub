@@ -221,11 +221,11 @@ func (update *Updates) getProgress(
 	curProgress := float32(curFrames*100) / float32(update.totalFrames)
 
 	// String to pad the left of each line, increase/decrease number of spaces on left
-	padLeft := "  "
+	const padLeft = "  "
 
 	// Excess spaces padding the right of each line, ensures existing text (if any) will
 	// be overwritten by these spaces
-	padRight := "\t\t"
+	const padRight = "        " // use spaces instead of tabs
 
 	// String slice, each element being a line of the final progress dialog.
 	contents := []string{
