@@ -201,3 +201,23 @@ func TestIgnoreFile(t *testing.T) {
 		}
 	}
 }
+
+func TestOutputName(t *testing.T) {
+	input := UserInput{}
+
+	for inp, res := range map[string]string{
+		"input.mkv":                        "input.mkv",
+		"input.mp4":                        "input.mkv",
+		"/home/usr/local/movies/movie.mp4": "/home/usr/local/movies/movie.mkv",
+	} {
+		if val := input.OutputName(inp); val != res {
+			t.Errorf(
+				"(userInput/OutputName) unexpected file name returned: \n"+
+					`input: "%s"`+"\n"+`output: "%s"`+"\n"+`expected output: "%s"`,
+				inp,
+				val,
+				res,
+			)
+		}
+	}
+}

@@ -226,15 +226,20 @@ Returns the current version of *auto-sub* present in your system.
 
 By default, the path entered is assumed to belong to a root directory (which will internally contain one or more source directories). In case you want to run *auto-sub* for an individual *source directory*, using this flag ensures that the path will be treated as a source directory. For more details, take a look at [source directory vs root directory](#source-directory-vs-root-directory)
 
+#### Force
+
+If a file with the same name as the output file already exists, *auto-sub* will by default skip the file unless this flag is used with the command. With the force flag enabled, the existing file will be over-written if required.
+
 #### Summary
 
-|    Flag   	| Short-hand 	|                   Purpose                  	|
-|:---------:	|------------	|:------------------------------------------:	|
-|   --log   	|      -     	|      Generate logs for the current run     	|
-|   --test  	|      -     	|      Run test(s) to verify your setup      	|
-| --version 	|     -v     	|    Display current version for auto-sub    	|
-|   --help  	|     -h     	|          Display help for auto-sub         	|
-|  --direct 	|      -     	| Treat root directory as a source directory 	|
+| Flag      	| Short-hand 	| Purpose                                    	|
+|-----------	|------------	|--------------------------------------------	|
+| --log     	| -          	| Generate logs for the current run          	|
+| --test    	| -          	| Run test(s) to verify your setup           	|
+| --version 	| -v         	| Display current version for auto-sub       	|
+| --help    	| -h         	| Display help for auto-sub                  	|
+| --direct  	| -          	| Treat root directory as a source directory 	|
+| --force   	| -f         	| Overwrite the existing output file         	|
 
 ### Miscellaneous Flags
 

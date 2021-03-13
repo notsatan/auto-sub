@@ -586,17 +586,16 @@ func generateCmd(
 		cmdRaw,
 		filepath.Join(
 			outDir,
-			fmt.Sprintf(
-				"%s.mkv",
 
-				// Trim extension from original file name
-				strings.TrimSuffix(
-					mediaFile.Name(),
-					filepath.Ext(mediaFile.Name()),
-				),
-			),
+			// Fetch final name for the output file
+			userInput.OutputName(filepath.Join(sourceDir, mediaFile.Name())),
 		),
 	)
+
+	if userInput.Force {
+		// Force flag is enabled
+		cmdRaw = append(cmdRaw, "-f")
+	}
 
 	cmd = exec.Command(
 		userInput.FFmpegPath, // path to the FFmpeg executable

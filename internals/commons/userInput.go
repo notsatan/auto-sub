@@ -8,6 +8,7 @@ package commons
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -34,11 +35,14 @@ type UserInput struct {
 	// Indicates if logging is required or not. True indicates Logging is required.
 	Logging bool
 
-	// Boolean containing value of the direct flag
+	// Boolean to indicate direct mode
 	IsDirect bool
 
-	// Boolean containing value of test flag
+	// Test flag
 	IsTest bool
+
+	// Force flag
+	Force bool
 
 	// Array of strings with each string being a name of the file that is to be ignored.
 	Exclusions []string
@@ -197,4 +201,13 @@ func (userInput *UserInput) log() {
 		strings.Join(userInput.Exclusions, `", "`),
 		userInput.RegexExclude,
 	)
+}
+
+/*
+OutputName is a generator method to generate the final name for the output file.
+
+The encoding process will move in two
+*/
+func (*UserInput) OutputName(filePath string) string {
+	return strings.TrimSuffix(filePath, filepath.Ext(filePath)) + ".mkv"
 }

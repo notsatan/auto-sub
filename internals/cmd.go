@@ -95,6 +95,14 @@ func boolFlags(command *cobra.Command, input *commons.UserInput) {
 		"Use root directory as source directory",
 	)
 
+	command.Flags().BoolVarP(
+		&userInput.Force,
+		"force",
+		"f",
+		false,
+		"Overwrite existing output file if needed",
+	)
+
 	// Override `help` and `version` flags - for a better output
 	command.Flags().BoolP(
 		"help",
