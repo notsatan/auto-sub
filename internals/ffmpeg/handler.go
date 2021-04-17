@@ -72,7 +72,7 @@ returning an error code as the result.
 */
 func TraverseRoot(
 	input *commons.UserInput, // user input
-	resDir string, // full path to output directory
+	resDir string,            // full path to output directory
 ) (exitCode int, err error) {
 	log.Debugf(
 		`(ffmpeg/TraverseRoot) traversing root directory: "%s"`+"\n"+
@@ -490,6 +490,7 @@ func generateCmd(
 		cmdRaw,
 
 		// Ensure streams from the original file are being copied directly
+		// Selectively mapping just the audio and video streams
 		"-c",
 		"copy",
 	)
@@ -497,8 +498,10 @@ func generateCmd(
 	/*
 		Mapping the input streams - extension of the above `-c copy` flag; ensures in
 		case of multiple subtitles being soft-subbed, all of them are mapped correctly.
+
+		Starting from index 1 since index zero will be the media file.
 	*/
-	for i := 0; i < len(subsFound)+1; i++ {
+	for i := 1; i < len(subsFound)+1; i++ {
 		cmdRaw = append(
 			cmdRaw,
 			"-map",
@@ -588,7 +591,7 @@ func generateCmd(
 			outDir,
 
 			// Fetch final name for the output file
-			userInput.OutputName(filepath.Join(sourceDir, mediaFile.Name())),
+			userInput.OutputName(mediaFile.Name()),
 		),
 	)
 

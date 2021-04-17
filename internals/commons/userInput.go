@@ -204,9 +204,8 @@ func (userInput *UserInput) log() {
 }
 
 /*
-OutputName is a generator method to generate the final name for the output file.
-
-The encoding process will move in two
+OutputName is a simple method to generate the final output name for a particular input
+file. The name returned will contain the file extension as well.
 */
 func (*UserInput) OutputName(filePath string) string {
 	return strings.TrimSuffix(filePath, filepath.Ext(filePath)) + ".mkv"
