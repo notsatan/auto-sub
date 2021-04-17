@@ -72,7 +72,7 @@ returning an error code as the result.
 */
 func TraverseRoot(
 	input *commons.UserInput, // user input
-	resDir string,            // full path to output directory
+	resDir string, // full path to output directory
 ) (exitCode int, err error) {
 	log.Debugf(
 		`(ffmpeg/TraverseRoot) traversing root directory: "%s"`+"\n"+
@@ -493,6 +493,10 @@ func generateCmd(
 		// Selectively mapping just the audio and video streams
 		"-c",
 		"copy",
+		"-map",
+		"0:a",
+		"-map",
+		"0:v",
 	)
 
 	/*
